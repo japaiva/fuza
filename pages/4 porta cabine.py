@@ -60,8 +60,6 @@ def porta_cabine():
     if st.button("Salvar", key="salvar_porta_cabine"):
         st.session_state["respostas"]["Modelo Porta"] = modelo
         st.session_state["respostas"]["Material Porta"] = material
-        if material == "Inox":
-            st.session_state["respostas"]["Tipo de Inox Porta"] = tipo_inox
         st.session_state["respostas"]["Folhas Porta"] = folhas
         st.session_state["respostas"]["Altura Porta"] = altura
         st.session_state["respostas"]["Largura Porta"] = largura

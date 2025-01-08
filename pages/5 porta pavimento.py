@@ -60,8 +60,6 @@ def porta_pav():
     if st.button("Salvar", key="salvar_porta_pav"):
         st.session_state["respostas"]["Modelo Porta Pavimento"] = modelo
         st.session_state["respostas"]["Material Porta Pavimento"] = material
-        if material == "Inox":
-            st.session_state["respostas"]["Tipo de Inox Porta Pavimento"] = tipo_inox
         st.session_state["respostas"]["Folhas Porta Pavimento"] = folhas
         st.session_state["respostas"]["Altura Porta Pavimento"] = altura
         st.session_state["respostas"]["Largura Porta Pavimento"] = largura
