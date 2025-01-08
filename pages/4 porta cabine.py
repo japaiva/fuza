@@ -29,14 +29,6 @@ def porta_cabine():
             key="material_porta"
         )
 
-        if material == "Inox":
-            tipo_inox = st.selectbox(
-                "Tipo de Inox:",
-                options=["304", "420", "430"],
-                index=["304", "420", "430"].index(st.session_state["respostas"].get("Tipo de Inox Porta", "304")),
-                key="tipo_inox_porta"
-            )
-
         folhas = st.selectbox(
             "Folhas:",
             options=["2", "3", "Central"],

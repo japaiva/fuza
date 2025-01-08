@@ -29,14 +29,6 @@ def porta_pav():
             key="material_porta_pav"
         )
 
-        if material == "Inox":
-            tipo_inox = st.selectbox(
-                "Tipo de Inox:",
-                options=["304", "420", "430"],
-                index=["304", "420", "430"].index(st.session_state["respostas"].get("Tipo de Inox Porta Pavimento", "304")),
-                key="tipo_inox_porta_pav"
-            )
-
         folhas = st.selectbox(
             "Folhas:",
             options=["2", "3", "Central"],
