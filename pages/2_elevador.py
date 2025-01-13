@@ -2,7 +2,7 @@ import streamlit as st
 from functions.layout import show_logo, set_page_config
 from functions.style import set_custom_style
 
-st.set_page_config(page_title="2: Detalhes do Elevador", layout="wide")
+st.set_page_config(page_title="2: Elevador", layout="wide")
 set_custom_style()
 show_logo()
 
@@ -60,30 +60,32 @@ def passo_elevador():
             max_value=10.0,
             step=0.01,
             format="%.2f",
-            value=float(st.session_state["respostas"].get("Largura do Poço", 0.0)),
+            value=float(st.session_state["respostas"].get("Largura do Poço", 2.0)),
             key="largura_poco"
         )
 
-        profundidade_poco = st.number_input(
-            "Profundidade do Poço (m):",
+        comprimento_poco = st.number_input(
+            "Comprimento do Poço (m):",
             min_value=0.00,
             max_value=10.0,
             step=0.01,
             format="%.2f",
-            value=float(st.session_state["respostas"].get("Profundidade do Poço", 0.0)),
-            key="profundidade_poco"
+            value=float(st.session_state["respostas"].get("Comprimento do Poço", 2.0)),
+            key="comprimento_poco"
         )
 
     if st.button("Salvar", key="salvar_elevador"):
-        if largura_poco > 0 and profundidade_poco > 0:
+        if largura_poco > 0 and comprimento_poco > 0:
             st.session_state["respostas"]["Modelo do Elevador"] = modelo
             st.session_state["respostas"]["Capacidade"] = capacidade
             st.session_state["respostas"]["Pavimentos"] = pavimentos
             st.session_state["respostas"]["Largura do Poço"] = largura_poco
-            st.session_state["respostas"]["Profundidade do Poço"] = profundidade_poco
-            st.success("Detalhes do elevador salvos com sucesso!")
+            st.session_state["respostas"]["Comprimento do Poço"] = comprimento_poco
+
+            st.switch_page("pages/3_cabine.py")
+            st.rerun()
         else:
-            st.error("A largura e a profundidade do poço devem ser maiores que zero.")
+            st.error("A largura e o comprimento do poço devem ser maiores que zero.")
 
 if __name__ == "__main__":
     passo_elevador()

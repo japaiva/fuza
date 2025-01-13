@@ -22,19 +22,28 @@ def porta_cabine():
             key="modelo_porta"
         )
 
-        material = st.selectbox(
-            "Material:",
-            options=["Inox", "Chapa Pintada", "Alumínio"],
-            index=["Inox", "Chapa Pintada", "Alumínio"].index(st.session_state["respostas"].get("Material Porta", "Inox")),
-            key="material_porta"
-        )
+        if modelo in ["Automática", "Pivotante"]:
+            material = st.selectbox(
+                "Material:",
+                options=["Inox", "Chapa Pintada", "Alumínio"],
+                index=["Inox", "Chapa Pintada", "Alumínio"].index(st.session_state["respostas"].get("Material Porta", "Inox")),
+                key="material_porta"
+            )
+        elif modelo == "Rampa":
+            material = st.selectbox(
+                "Material:",
+                options=["Com aço", "Sem aço"],
+                index=["Com aço", "Sem aço"].index(st.session_state["respostas"].get("Material Porta", "Com aço")),
+                key="material_porta"
+            )
 
-        folhas = st.selectbox(
-            "Folhas:",
-            options=["2", "3", "Central"],
-            index=["2", "3", "Central"].index(st.session_state["respostas"].get("Folhas Porta", "2")),
-            key="folhas_porta"
-        )
+        if modelo == "Automática":
+            folhas = st.selectbox(
+                "Folhas:",
+                options=["2", "3", "Central"],
+                index=["2", "3", "Central"].index(st.session_state["respostas"].get("Folhas Porta", "2")),
+                key="folhas_porta"
+            )
 
     with col2:
         altura = st.number_input(
@@ -59,11 +68,19 @@ def porta_cabine():
 
     if st.button("Salvar", key="salvar_porta_cabine"):
         st.session_state["respostas"]["Modelo Porta"] = modelo
-        st.session_state["respostas"]["Material Porta"] = material
-        st.session_state["respostas"]["Folhas Porta"] = folhas
+        if modelo in ["Automática", "Pivotante", "Rampa"]:
+            st.session_state["respostas"]["Material Porta"] = material
+        else:
+            st.session_state["respostas"].pop("Material Porta", None)
+        if modelo == "Automática":
+            st.session_state["respostas"]["Folhas Porta"] = folhas
+        else:
+            st.session_state["respostas"].pop("Folhas Porta", None)
         st.session_state["respostas"]["Altura Porta"] = altura
         st.session_state["respostas"]["Largura Porta"] = largura
-        st.success("Detalhes da porta da cabine salvos com sucesso!")
+
+        st.switch_page("pages/5_porta_pavimento.py")
+        st.rerun()
 
 if __name__ == "__main__":
     porta_cabine()

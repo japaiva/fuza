@@ -2,7 +2,7 @@ import streamlit as st
 from functions.layout import show_logo, set_page_config
 from functions.style import set_custom_style
 
-st.set_page_config(page_title="3: Cabine e Corpo", layout="wide")
+st.set_page_config(page_title="3: Cabine", layout="wide")
 set_custom_style()
 show_logo()
 
@@ -48,6 +48,18 @@ def cabine_corpo():
         )
 
     with col2:
+        modelo_elevador = st.session_state["respostas"].get("Modelo do Elevador", "")
+        altura_inicial = 2.30 if modelo_elevador == "Passageiro" else 2.10
+        altura_cabine = st.number_input(
+            "Altura da Cabine (m):",
+            min_value=0.01,
+            max_value=5.0,
+            value=float(st.session_state["respostas"].get("Altura da Cabine", altura_inicial)),
+            step=0.01,
+            format="%.2f",
+            key="altura_cabine"
+        )
+
         tracao = st.selectbox(
             "Tração:",
             options=["1x1", "2x1"],
@@ -70,15 +82,23 @@ def cabine_corpo():
         )
 
     if st.button("Salvar", key="salvar_cabine_corpo"):
-        st.session_state["respostas"]["Material"] = material
-        if material == "Inox":
-            st.session_state["respostas"]["Tipo de Inox"] = tipo_inox
-        st.session_state["respostas"]["Espessura"] = espessura
-        st.session_state["respostas"]["Saída"] = saida
-        st.session_state["respostas"]["Tração"] = tracao
-        st.session_state["respostas"]["Contrapeso"] = contrapeso
-        st.session_state["respostas"]["Piso"] = piso
-        st.success("Detalhes da cabine salvos com sucesso!")
+        if altura_cabine > 0:
+            st.session_state["respostas"]["Material"] = material
+            if material == "Inox":
+                st.session_state["respostas"]["Tipo de Inox"] = tipo_inox
+            else:
+                st.session_state["respostas"].pop("Tipo de Inox", None)
+            st.session_state["respostas"]["Espessura"] = espessura
+            st.session_state["respostas"]["Saída"] = saida
+            st.session_state["respostas"]["Altura da Cabine"] = altura_cabine
+            st.session_state["respostas"]["Tração"] = tracao
+            st.session_state["respostas"]["Contrapeso"] = contrapeso
+            st.session_state["respostas"]["Piso"] = piso
+
+            st.switch_page("pages/4_porta_cabine.py")
+            st.rerun()
+        else:
+            st.error("A altura da cabine deve ser maior que zero.")
 
 if __name__ == "__main__":
     cabine_corpo()

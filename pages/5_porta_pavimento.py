@@ -22,14 +22,31 @@ def porta_pav():
             key="modelo_porta_pav"
         )
 
-        material = st.selectbox(
-            "Material:",
-            options=["Inox", "Chapa Pintada", "Alumínio"],
-            index=["Inox", "Chapa Pintada", "Alumínio"].index(st.session_state["respostas"].get("Material Porta Pavimento", "Inox")),
-            key="material_porta_pav"
-        )
+        if modelo in ["Automática", "Pivotante"]:
+            material_options = ["Inox", "Chapa Pintada", "Alumínio"]
+            default_material = st.session_state["respostas"].get("Material Porta Pavimento", "Inox")
+            if default_material not in material_options:
+                default_material = "Inox"
+            material = st.selectbox(
+                "Material:",
+                options=material_options,
+                index=material_options.index(default_material),
+                key="material_porta_pav"
+            )
+        elif modelo == "Rampa":
+            material_options = ["Com aço", "Sem aço"]
+            default_material = st.session_state["respostas"].get("Material Porta Pavimento", "Com aço")
+            if default_material not in material_options:
+                default_material = "Com aço"
+            material = st.selectbox(
+                "Material:",
+                options=material_options,
+                index=material_options.index(default_material),
+                key="material_porta_pav"
+            )
 
-        folhas = st.selectbox(
+        if modelo == "Automática":
+            folhas = st.selectbox(
             "Folhas:",
             options=["2", "3", "Central"],
             index=["2", "3", "Central"].index(st.session_state["respostas"].get("Folhas Porta Pavimento", "2")),
@@ -59,11 +76,19 @@ def porta_pav():
 
     if st.button("Salvar", key="salvar_porta_pav"):
         st.session_state["respostas"]["Modelo Porta Pavimento"] = modelo
-        st.session_state["respostas"]["Material Porta Pavimento"] = material
-        st.session_state["respostas"]["Folhas Porta Pavimento"] = folhas
+        if modelo in ["Automática", "Pivotante", "Rampa"]:
+            st.session_state["respostas"]["Material Porta Pavimento"] = material
+        else:
+            st.session_state["respostas"].pop("Material Porta Pavimento", None)
+        if modelo == "Automática":
+            st.session_state["respostas"]["Folhas Porta Pavimento"] = folhas
+        else:
+            st.session_state["respostas"].pop("Folhas Porta Pavimento", None)
         st.session_state["respostas"]["Altura Porta Pavimento"] = altura
         st.session_state["respostas"]["Largura Porta Pavimento"] = largura
-        st.success("Detalhes da porta do pavimento salvos com sucesso!")
+        
+        st.switch_page("simulador.py")
+        st.rerun()
 
 if __name__ == "__main__":
     porta_pav()

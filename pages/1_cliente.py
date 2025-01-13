@@ -3,7 +3,7 @@ from functions.layout import show_logo, set_page_config
 from functions.helpers import valida_campos
 from functions.style import set_custom_style
 
-st.set_page_config(page_title="1: Identificação do Cliente", layout="wide")
+st.set_page_config(page_title="1: Cliente", layout="wide")
 set_custom_style()
 show_logo()
 
@@ -31,7 +31,9 @@ def passo_cliente():
         if valida_campos(nome_cliente, nome_empresa):
             st.session_state["respostas"]["Solicitante"] = nome_cliente.strip()
             st.session_state["respostas"]["Empresa"] = nome_empresa.strip()
-            st.success("Dados salvos com sucesso!")
+
+            st.switch_page("pages/2_elevador.py")
+            st.rerun()
         else:
             st.error("Por favor, preencha ambos os campos.")
 
