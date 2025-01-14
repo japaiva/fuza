@@ -22,7 +22,7 @@ def agrupar_respostas_por_pagina(respostas):
 
 def main():
     st.set_page_config(
-        page_title="SCP - Fuza Elevadores",
+        page_title="SCP Fuza Elevadores",
         layout="wide"
     )
     set_custom_style()
