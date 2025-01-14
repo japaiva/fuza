@@ -87,7 +87,7 @@ def porta_pav():
         st.session_state["respostas"]["Altura Porta Pavimento"] = altura
         st.session_state["respostas"]["Largura Porta Pavimento"] = largura
         
-        st.switch_page("simulador.py")
+        st.switch_page("Simulador.py")
         st.rerun()
 
 if __name__ == "__main__":
