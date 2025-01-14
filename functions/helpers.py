@@ -17,7 +17,7 @@ def calcular_dimensoes_cabine(respostas):
     contrapeso = respostas.get("Contrapeso", "")
 
     # Cálculo da largura
-    if largura_poco > 1.5:
+    if largura_poco <= 1.5:
         largura = largura_poco - 0.42  # 21 cm de cada lado
     else:
         largura = largura_poco - 0.48  # 24 cm de cada lado
@@ -50,8 +50,8 @@ def explicacao_calculo():
     - Informada na seção da cabine.
 
     2. **Largura**:
-    - Se a largura do poço > 1,5m: Largura do poço - 42cm (21cm de cada lado)
-    - Se a largura do poço ≤ 1,5m: Largura do poço - 48cm (24cm de cada lado)
+    - Se a largura do poço <= 1,5m: Largura do poço - 42cm (21cm de cada lado)
+    - Se a largura do poço > 1,5m: Largura do poço - 48cm (24cm de cada lado)
     - Se contrapeso lateral: Reduz mais 23cm
 
     3. **Comprimento**:
