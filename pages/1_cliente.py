@@ -8,7 +8,7 @@ set_custom_style()
 show_logo()
 
 def passo_cliente():
-    st.markdown('<h3 class="stSubheader">Identificação do Cliente</h3>', unsafe_allow_html=True)
+    st.markdown('<h3 class="stSubheader">Identificação Cliente</h3>', unsafe_allow_html=True)
     
     if "respostas" not in st.session_state:
         st.session_state["respostas"] = {}

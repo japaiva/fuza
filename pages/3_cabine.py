@@ -7,7 +7,7 @@ set_custom_style()
 show_logo()
 
 def cabine_corpo():
-    st.markdown('<h3 class="stSubheader">Detalhes da Cabine</h3>', unsafe_allow_html=True)
+    st.markdown('<h3 class="stSubheader">Detalhes Cabine</h3>', unsafe_allow_html=True)
 
     if "respostas" not in st.session_state:
         st.session_state["respostas"] = {}

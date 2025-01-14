@@ -7,7 +7,7 @@ set_custom_style()
 show_logo()
 
 def porta_pav():
-    st.markdown('<h3 class="stSubheader">Detalhes da Porta do Pavimento</h3>', unsafe_allow_html=True)
+    st.markdown('<h3 class="stSubheader">Detalhes Porta Pavimento</h3>', unsafe_allow_html=True)
 
     if "respostas" not in st.session_state:
         st.session_state["respostas"] = {}
