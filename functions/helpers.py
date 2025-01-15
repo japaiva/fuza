@@ -23,7 +23,7 @@ def calcular_dimensoes_cabine(respostas):
         largura = largura_poco - 0.48  # 24 cm de cada lado
 
     # Cálculo do comprimento
-    comprimento = comprimento_poco - 0.06  # 6 cm do comprimento do poço
+    comprimento = comprimento_poco - 0.11  # 11 cm do comprimento do poço
 
     # Ajustes baseados no modelo da porta
     if modelo_porta in ["Automática 2 folhas", "Central"]:
@@ -55,7 +55,7 @@ def explicacao_calculo():
     - Se contrapeso lateral: Reduz mais 23cm
 
     3. **Comprimento**:
-    - Inicia com: Comprimento do poço - 6cm
+    - Inicia com: Comprimento do poço - 11cm
     - Ajustes adicionais baseados no tipo de porta
      (Porta automática 2 folhas ou central: -21cm,
      Porta automática 3 folhas: -31cm,
