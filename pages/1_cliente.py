@@ -1,11 +1,20 @@
+# pages/1_cliente.py
 import streamlit as st
-from functions.layout import show_logo, set_page_config
-from functions.helpers import valida_campos
+from functions.layout import show_logo
 from functions.style import set_custom_style
+from functions.auth import check_auth
+from functions.helpers import valida_campos
+from functions.page_utils import get_current_page_name
 
 st.set_page_config(page_title="1: Cliente", layout="wide")
 set_custom_style()
 show_logo()
+
+current_page = get_current_page_name()
+if current_page:
+    st.session_state['current_page'] = current_page
+
+check_auth()
 
 def passo_cliente():
     st.markdown('<h3 class="stSubheader">Identificação Cliente</h3>', unsafe_allow_html=True)
@@ -28,14 +37,16 @@ def passo_cliente():
         )
   
     if st.button("Salvar", key="salvar_cliente"):
-        if valida_campos(nome_cliente, nome_empresa):
+        if valida_campos(nome_cliente):
             st.session_state["respostas"]["Solicitante"] = nome_cliente.strip()
-            st.session_state["respostas"]["Empresa"] = nome_empresa.strip()
+            if nome_empresa:
+                st.session_state["respostas"]["Empresa"] = nome_empresa.strip()
 
             st.switch_page("pages/2_elevador.py")
             st.rerun()
         else:
-            st.error("Por favor, preencha ambos os campos.")
+            st.error("Por favor, identifique o cliente.")
 
 if __name__ == "__main__":
     passo_cliente()
+

@@ -1,11 +1,6 @@
-# layout.py
+# functions/layout.py
 import streamlit as st
 
 def show_logo():
+    """Exibe o logo na barra lateral."""
     st.sidebar.image("assets/logo.png", width=150)
-
-def set_page_config():
-    st.set_page_config(
-        page_title="SCP - Fuza Elevadores",
-        layout="wide"
-    )

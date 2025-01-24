@@ -1,10 +1,18 @@
 import streamlit as st
-from functions.layout import show_logo, set_page_config
+from functions.layout import show_logo
 from functions.style import set_custom_style
+from functions.auth import check_auth
+from functions.page_utils import get_current_page_name
 
 st.set_page_config(page_title="2: Elevador", layout="wide")
 set_custom_style()
 show_logo()
+
+current_page = get_current_page_name()
+if current_page:
+    st.session_state['current_page'] = current_page
+
+check_auth()
 
 def passo_elevador():
     st.markdown('<h3 class="stSubheader">Detalhes Elevador</h3>', unsafe_allow_html=True)

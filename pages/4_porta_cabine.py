@@ -1,10 +1,18 @@
 import streamlit as st
-from functions.layout import show_logo, set_page_config
+from functions.layout import show_logo
 from functions.style import set_custom_style
+from functions.auth import check_auth
+from functions.page_utils import get_current_page_name
 
 st.set_page_config(page_title="4: Porta da Cabine", layout="wide")
 set_custom_style()
 show_logo()
+
+current_page = get_current_page_name()
+if current_page:
+    st.session_state['current_page'] = current_page
+
+check_auth()
 
 def porta_cabine():
     st.markdown('<h3 class="stSubheader">Detalhes Porta Cabine</h3>', unsafe_allow_html=True)
@@ -40,8 +48,8 @@ def porta_cabine():
         if modelo == "Automática":
             folhas = st.selectbox(
                 "Folhas:",
-                options=["2", "3", "Central"],
-                index=["2", "3", "Central"].index(st.session_state["respostas"].get("Folhas Porta", "2")),
+                options=["2", "3","4", "Central"],
+                index=["2", "3","4", "Central"].index(st.session_state["respostas"].get("Folhas Porta", "2")),
                 key="folhas_porta"
             )
 

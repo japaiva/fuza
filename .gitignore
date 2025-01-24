@@ -1,2 +1,5 @@
 z_arquivos/
 .venv/
+alembic/
+app.db
+alembic.ini

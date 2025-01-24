@@ -1,10 +1,18 @@
 import streamlit as st
-from functions.layout import show_logo, set_page_config
+from functions.layout import show_logo
 from functions.style import set_custom_style
+from functions.auth import check_auth
+from functions.page_utils import get_current_page_name
 
 st.set_page_config(page_title="3: Cabine", layout="wide")
 set_custom_style()
 show_logo()
+
+current_page = get_current_page_name()
+if current_page:
+    st.session_state['current_page'] = current_page
+
+check_auth()
 
 def cabine_corpo():
     st.markdown('<h3 class="stSubheader">Detalhes Cabine</h3>', unsafe_allow_html=True)
@@ -25,8 +33,8 @@ def cabine_corpo():
         if material == "Inox":
             tipo_inox = st.selectbox(
                 "Tipo de Inox:",
-                options=["304", "420", "430"],
-                index=["304", "420", "430"].index(st.session_state["respostas"].get("Tipo de Inox", "304")),
+                options=["304", "430"],
+                index=["304", "430"].index(st.session_state["respostas"].get("Tipo de Inox", "304")),
                 key="tipo_inox"
             )
 
@@ -81,6 +89,14 @@ def cabine_corpo():
             key="piso"
         )
 
+        if piso == "Por conta da empresa":
+            material_piso = st.selectbox(
+                "Material do Piso da Cabine:",
+                options=["Granito", "Antiderrapante 3/8"],
+                index=["Granito", "Antiderrapante 3/8"].index(st.session_state["respostas"].get("Material Piso Cabine", "Granito")),
+                key="material_piso"
+            )
+
     if st.button("Salvar", key="salvar_cabine_corpo"):
         if altura_cabine > 0:
             st.session_state["respostas"]["Material"] = material
@@ -94,6 +110,10 @@ def cabine_corpo():
             st.session_state["respostas"]["Tração"] = tracao
             st.session_state["respostas"]["Contrapeso"] = contrapeso
             st.session_state["respostas"]["Piso"] = piso
+            if piso == "Por conta da empresa":
+                st.session_state["respostas"]["Material Piso Cabine"] = material_piso
+            else:
+                st.session_state["respostas"].pop("Material Piso Cabine", None)
 
             st.switch_page("pages/4_porta_cabine.py")
             st.rerun()
