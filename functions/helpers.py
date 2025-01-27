@@ -24,6 +24,7 @@ def calcular_dimensoes_cabine(respostas: dict):
     largura_poco = float(respostas.get("Largura do Poço", 0))
     comprimento_poco = float(respostas.get("Comprimento do Poço", 0))
     modelo_porta = respostas.get("Modelo Porta", "")
+    folhas_porta = respostas.get("Folhas Porta", "")
     contrapeso = respostas.get("Contrapeso", "")
 
     if largura_poco <= 1.5:
@@ -32,16 +33,21 @@ def calcular_dimensoes_cabine(respostas: dict):
         largura = largura_poco - 0.48
     comprimento = comprimento_poco - 0.14
 
-    if modelo_porta in ["Automática 2 folhas", "Central"]:
-        comprimento -= 0.138
-    elif modelo_porta == "Automática 3 folhas":
-        comprimento -= 0.31
-    elif modelo_porta == "Automática 4 folhas":
-        comprimento -= 0.21
+    # Ajustes baseados no tipo de porta
+    ajuste_porta = 0.0
+    if modelo_porta == "Automática":
+       if folhas_porta in ["2", "Central"]:
+            ajuste_porta = 0.138
+       elif folhas_porta == "3":
+            ajuste_porta = 0.31
+       elif modelo_porta == "4":
+            ajuste_porta = 0.21
     elif modelo_porta == "Pantográfica":
-        comprimento -= 0.13
+        ajuste_porta = 0.13
     elif modelo_porta == "Pivotante":
-        comprimento -= 0.04
+        ajuste_porta = 0.04
+
+    comprimento -= ajuste_porta
 
     if contrapeso == "Lateral":
         largura -= 0.23
@@ -50,24 +56,128 @@ def calcular_dimensoes_cabine(respostas: dict):
 
     return altura, round(largura, 2), round(comprimento, 2)
 
-def explicacao_calculo() -> str:
-    """Retorna texto de explicação das regras de cálculo."""
-    return """
-    1. **Altura**: Informada na seção da cabine.
-    2. **Largura**:
-       - Até 1,5m de poço: subtrai 42cm no total.
-       - Acima de 1,5m: subtrai 48cm no total.
-       - Contrapeso lateral: -23cm adicional.
-    3. **Comprimento**:
-       - Inicia com: comprimento do poço - 14cm
-       - Ajustes baseados no tipo de porta:
-         - Automática 2 folhas/Central: -13,8cm
-         - Automática 3 folhas: -30cm
-         - Automática 4 folhas: -21cm
-         - Pantográfica: -13cm
-         - Pivotante: -4cm
-       - Contrapeso traseiro: -23cm adicional
+def dem_dimensao(respostas: dict) -> str:
+    # Extrai os dados necessários
+    altura_cabine = float(respostas.get("Altura da Cabine", 0))
+    largura_poco = float(respostas.get("Largura do Poço", 0))
+    comprimento_poco = float(respostas.get("Comprimento do Poço", 0))
+    modelo_porta = respostas.get("Modelo Porta", "")
+    folhas_porta = respostas.get("Folhas Porta", "")
+    contrapeso = respostas.get("Contrapeso", "")
+
+    # Inicializa as variáveis para o cálculo
+    largura = largura_poco
+    comprimento = comprimento_poco
+
+    # Explicação calculo
+    explicacao_calc = """
+    **CRITÉRIOS**
     """
+    explicacao_calc += """
+    **Altura**: 
+    - Informada na seção da cabine
+    """
+    explicacao_calc += """
+    **Largura**:
+    - Inicia com largura do poço
+    - Até 1,5m de poço: subtrai 42cm no total
+    - Acima de 1,5m: subtrai 48cm no total
+    - Contrapeso lateral: -23cm
+    """
+    explicacao_calc += """
+    **Comprimento**:
+    - Inicia com comprimento do poço - 14cm
+    - Ajustes baseados no tipo de porta:
+        - Automática 2 folhas/Central: -13,8cm
+        - Automática 3 folhas: -30cm
+        - Automática 4 folhas: -21cm
+        - Pantográfica: -13cm
+        - Pivotante: -4cm
+    - Contrapeso traseiro: -23cm
+
+    **DEMONSTRATIVO**
+    """
+
+    explicacao_altura = f"""
+    **Altura**: 
+    - Informada pelo usuário
+    """
+    explicacao_altura += f"""
+    - Resultado: {altura_cabine:.2f}m
+    """
+
+    explicacao_largura = f"""
+    **Largura**:
+    - Largura do poço: {largura_poco:.2f}m
+    {"- Até 1,5m de poço: subtrai 0,42m" if largura_poco <= 1.5 else "- Acima de 1,5m de poço: subtrai 0,48m"}
+    """
+    if largura_poco <= 1.5:
+        largura -= 0.42
+    else:
+        largura -= 0.48
+
+    if contrapeso == "Lateral":
+        largura -= 0.23
+        explicacao_largura += f"""
+    - Contrapeso lateral: subtrai 0,23m
+        """
+               
+    explicacao_largura += f"""
+    - Resultado: {largura:.2f}m
+    """
+
+    # Explicação do comprimento
+    explicacao_comprimento = f"""
+    **Comprimento**:
+    - Comprimento do poço: {comprimento_poco:.2f}m
+    - Subtração padrão: 0,14m
+    """
+    comprimento -= 0.14
+
+    # Ajustes baseados no tipo de porta
+    ajuste_porta = 0.0
+    if modelo_porta == "Automática":
+       if folhas_porta in ["2", "Central"]:
+            ajuste_porta = 0.138
+       elif folhas_porta == "3":
+            ajuste_porta = 0.31
+       elif modelo_porta == "4":
+            ajuste_porta = 0.21
+    elif modelo_porta == "Pantográfica":
+        ajuste_porta = 0.13
+    elif modelo_porta == "Pivotante":
+        ajuste_porta = 0.04
+
+    if ajuste_porta > 0:
+        comprimento -= ajuste_porta
+        if modelo_porta == "Automática":
+            explicacao_comprimento += f"""
+    - Porta Automática, folhas {folhas_porta}: subtrai {ajuste_porta:.3f}m
+        """
+        else:
+            explicacao_comprimento += f"""
+    - Porta {modelo_porta}: subtrai {ajuste_porta:.3f}m
+        """
+
+    # Ajuste para contrapeso traseiro
+    if contrapeso == "Traseiro":
+        comprimento -= 0.23
+        explicacao_comprimento += f"""
+    - Contrapeso traseiro: subtrai 0,23m
+        """
+    explicacao_comprimento += f"""
+    - Resultado: {comprimento:.2f}m
+    """
+
+    # Junta todas as explicações
+    explicacao_completa = f"""
+    {explicacao_calc}
+    {explicacao_altura}
+    {explicacao_largura}
+    {explicacao_comprimento}
+    """
+
+    return explicacao_completa
 
 def calcular_largura_painel(dimensao):
     """Calcula a largura ideal do painel, entre 25 e 33 cm, não excedendo 40 cm com as dobras."""
@@ -123,3 +233,43 @@ def calcular_chapas_cabine(altura, largura, comprimento):
         "num_chapaf": num_chapaf,
         "sobra_chapaf": sobra_chapaf
     }
+
+def dem_placas(chapas_info):
+    demonstrativo = """
+    Painéis:
+    - Laterais: {num_paineis_lateral} painéis de {largura_painel_lateral:.2f}cm L ({largura_painel_lateral_com_dobras:.2f}cm considerando dobras) e {altura_painel_lateral:.2f}m A
+    - Fundo: {num_paineis_fundo} painéis de {largura_painel_fundo:.2f}cm L ({largura_painel_fundo_com_dobras:.2f}cm considerando dobras) e {altura_painel_fundo:.2f}m A
+    - Teto: {num_paineis_teto} painéis de {largura_painel_teto:.2f}cm L ({largura_painel_teto_com_dobras:.2f}cm considerando dobras) e {altura_painel_teto:.2f}m A
+    """
+
+    demonstrativo += """
+    Chapas Utilizadas:   
+    - Laterais e Teto: {num_chapalt:.0f} chapas, sobra por chapa: {sobra_chapalt:.2f}cm
+    - Fundo: {num_chapaf:.0f} chapas, sobra por chapa: {sobra_chapaf:.2f}cm
+    """
+
+    demonstrativo += """   
+    Observações:   
+    - O cálculo considera a otimização do uso das chapas, minimizando sobras.
+    - Dobras acrescentam 8,5 cm em cada painel.
+    - As dimensões das Chapas de Aço Brutas consideradas são 1,20m x 3,00m.
+    """
+    
+    return demonstrativo.format(
+        num_paineis_lateral=chapas_info['num_paineis_lateral'],
+        largura_painel_lateral=chapas_info['largura_painel_lateral']*100,
+        largura_painel_lateral_com_dobras=(chapas_info['largura_painel_lateral']+0.085)*100,
+        altura_painel_lateral=chapas_info['altura_painel_lateral'],
+        num_paineis_fundo=chapas_info['num_paineis_fundo'],
+        largura_painel_fundo=chapas_info['largura_painel_fundo']*100,
+        largura_painel_fundo_com_dobras=(chapas_info['largura_painel_fundo']+0.085)*100,
+        altura_painel_fundo=chapas_info['altura_painel_fundo'],
+        num_paineis_teto=chapas_info['num_paineis_teto'],
+        largura_painel_teto=chapas_info['largura_painel_teto']*100,
+        largura_painel_teto_com_dobras=(chapas_info['largura_painel_teto']+0.085)*100,
+        altura_painel_teto=chapas_info['altura_painel_teto'],
+        num_chapalt=chapas_info['num_chapalt'],
+        sobra_chapalt=chapas_info['sobra_chapalt']*100,
+        num_chapaf=chapas_info['num_chapaf'],
+        sobra_chapaf=chapas_info['sobra_chapaf']*100
+    )

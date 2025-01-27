@@ -6,7 +6,7 @@ from functions.database import init_db, add_admin_if_not_exists, get_all_users, 
 from functions.auth import verify_login, check_auth
 from functions.layout import show_logo
 from functions.style import set_custom_style
-from functions.helpers import calcula_custo_elevador, calcular_dimensoes_cabine, explicacao_calculo,  calcular_chapas_cabine, calcular_largura_painel
+from functions.helpers import calcula_custo_elevador, calcular_dimensoes_cabine, dem_dimensao,  calcular_chapas_cabine, dem_placas
 from functions.admin import usuarios_page, custos_page, parametros_page
 
 st.set_page_config(
@@ -150,28 +150,16 @@ def main():
                 st.markdown(f"**Dimensões Cabine:** {largura:.2f}m L x {comprimento:.2f}m C x {altura:.2f}m A")
                 
                 if nivel != 'vendedor':
-                    with st.expander("Clique aqui para ver detalhes do cálculo"):
-                        st.markdown(explicacao_calculo())        
+                    with st.expander("Detalhes do cálculo da dimensão da cabine"):
+                        st.markdown(dem_dimensao(respostas))     
 
-                    with st.expander("Detalhes do cálculo de chapas"):
+                    with st.expander("Detalhes do cálculo de necessidade de chapas"):
                         chapas_info = calcular_chapas_cabine(altura, largura, comprimento)
                         
                         if isinstance(chapas_info, str):
                             st.error(chapas_info)
                         else:
-                            st.markdown("##### Painéis:")
-                            st.markdown(f"- Laterais: {chapas_info['num_paineis_lateral']} painéis de {chapas_info['largura_painel_lateral']*100:.2f}cm L ({(chapas_info['largura_painel_lateral']+0.085)*100:.2f}cm considerando dobras) e {chapas_info['altura_painel_lateral']:.2f}m A")
-                            st.markdown(f"- Fundo: {chapas_info['num_paineis_fundo']} painéis de {chapas_info['largura_painel_fundo']*100:.2f}cm L ({(chapas_info['largura_painel_fundo']+0.085)*100:.2f}cm considerando dobras) e {chapas_info['altura_painel_fundo']:.2f}m A")
-                            st.markdown(f"- Teto: {chapas_info['num_paineis_teto']} painéis de {chapas_info['largura_painel_teto']*100:.2f}cm L ({(chapas_info['largura_painel_teto']+0.085)*100:.2f}cm considerando dobras) e {chapas_info['altura_painel_teto']:.2f}m A")
-                            
-                            st.markdown("##### Chapas Utilizadas:")
-                            st.markdown(f"- Laterais e Teto: {chapas_info['num_chapalt']:.0f} chapas, sobra por chapa: {chapas_info['sobra_chapalt']*100:.2f}cm")
-                            st.markdown(f"- Fundo: {chapas_info['num_chapaf']:.0f} chapas, sobra por chapa: {chapas_info['sobra_chapaf']*100:.2f}cm")
-                            
-                            st.markdown("##### Observações:")
-                            st.markdown("- O cálculo considera a otimização do uso das chapas, minimizando sobras.")
-                            st.markdown("- Dobras acrescentam 8,5 cm em cada painel.")
-                            st.markdown("- As dimensões das Chapas de Aço Brutas consideradas são 1,20m x 3,00m.")
+                            st.markdown(dem_placas(chapas_info))
 
                     custo_est = calcula_custo_elevador(capacidade, pavimentos)
                     st.markdown(f"O custo estimado para este modelo é de:")
