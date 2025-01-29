@@ -34,7 +34,7 @@ def cabine_corpo():
             tipo_inox = st.selectbox(
                 "Tipo de Inox:",
                 options=["304", "430"],
-                index=["304", "430"].index(st.session_state["respostas"].get("Tipo de Inox", "304")),
+                index=["304", "430"].index(st.session_state["respostas"].get("Tipo de Inox", "430")),
                 key="tipo_inox"
             )
 

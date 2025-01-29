@@ -6,7 +6,7 @@ from functions.database import init_db, add_admin_if_not_exists, get_all_users, 
 from functions.auth import verify_login, check_auth
 from functions.layout import show_logo
 from functions.style import set_custom_style
-from functions.helpers import calcula_custo_elevador, calcular_dimensoes_cabine, dem_dimensao,  calcular_chapas_cabine, dem_placas
+from functions.helpers import calcula_custo_elevador, calcular_dimensoes_e_explicacao, calcular_chapas_cabine, dem_placas
 from functions.admin import usuarios_page, custos_page, parametros_page
 
 st.set_page_config(
@@ -145,13 +145,12 @@ def main():
                 modelo = respostas.get("Modelo do Elevador", "N/A")
                 capacidade = float(respostas.get("Capacidade", 0))
                 pavimentos = int(respostas.get("Pavimentos", 2))
-
-                altura, largura, comprimento = calcular_dimensoes_cabine(respostas)
+                altura, largura, comprimento, explicacao = calcular_dimensoes_e_explicacao(respostas)
                 st.markdown(f"**Dimensões Cabine:** {largura:.2f}m L x {comprimento:.2f}m C x {altura:.2f}m A")
-                
+
                 if nivel != 'vendedor':
                     with st.expander("Detalhes do cálculo da dimensão da cabine"):
-                        st.markdown(dem_dimensao(respostas))     
+                        st.markdown(explicacao)   
 
                     with st.expander("Detalhes do cálculo de necessidade de chapas"):
                         chapas_info = calcular_chapas_cabine(altura, largura, comprimento)
