@@ -48,12 +48,6 @@ def cabine_corpo():
             key="espessura"
         )
 
-        saida = st.selectbox(
-            "Saída:",
-            options=["Padrão", "Oposta"],
-            index=["Padrão", "Oposta"].index(st.session_state["respostas"].get("Saída", "Padrão")),
-            key="saida"
-        )
 
     with col2:
         modelo_elevador = st.session_state["respostas"].get("Modelo do Elevador", "")
@@ -68,19 +62,13 @@ def cabine_corpo():
             key="altura_cabine"
         )
 
-        tracao = st.selectbox(
-            "Tração:",
-            options=["1x1", "2x1"],
-            index=["1x1", "2x1"].index(st.session_state["respostas"].get("Tração", "1x1")),
-            key="tracao"
+        saida = st.selectbox(
+            "Saída:",
+            options=["Padrão", "Oposta"],
+            index=["Padrão", "Oposta"].index(st.session_state["respostas"].get("Saída", "Padrão")),
+            key="saida"
         )
 
-        contrapeso = st.selectbox(
-            "Contrapeso:",
-            options=["Traseiro", "Lateral", "Carretel", "Hidráulico"],
-            index=["Traseiro", "Lateral", "Carretel", "Hidráulico"].index(st.session_state["respostas"].get("Contrapeso", "Traseiro")),
-            key="contrapeso"
-        )
 
         piso = st.selectbox(
             "Piso:",
@@ -92,8 +80,8 @@ def cabine_corpo():
         if piso == "Por conta da empresa":
             material_piso = st.selectbox(
                 "Material do Piso da Cabine:",
-                options=["Granito", "Antiderrapante 3/8"],
-                index=["Granito", "Antiderrapante 3/8"].index(st.session_state["respostas"].get("Material Piso Cabine", "Granito")),
+                options=["Xadrez", "Antiderrapante 3/8"],
+                index=["Xadrez", "Antiderrapante 3/8"].index(st.session_state["respostas"].get("Material Piso Cabine", "Xadrez")),
                 key="material_piso"
             )
 
@@ -107,8 +95,6 @@ def cabine_corpo():
             st.session_state["respostas"]["Espessura"] = espessura
             st.session_state["respostas"]["Saída"] = saida
             st.session_state["respostas"]["Altura da Cabine"] = altura_cabine
-            st.session_state["respostas"]["Tração"] = tracao
-            st.session_state["respostas"]["Contrapeso"] = contrapeso
             st.session_state["respostas"]["Piso"] = piso
             if piso == "Por conta da empresa":
                 st.session_state["respostas"]["Material Piso Cabine"] = material_piso

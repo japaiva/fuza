@@ -2,5 +2,4 @@ z_arquivos/
 .venv/
 __pycache__/
 alembic/
-app.db
 alembic.ini

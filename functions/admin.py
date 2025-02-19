@@ -79,31 +79,39 @@ def custos_page():
     # Carrega os custos do BD
     custos = get_all_custos()
     old_df = pd.DataFrame([
-        {"id": c.id, "Componente": c.componente, "Valor": c.valor}
+        {"codigo": c.codigo, "descricao": c.descricao, "unidade": c.unidade, "valor": c.valor}
         for c in custos
     ])
 
     # Se não existir nenhum registro, cria colunas para evitar erro
     if old_df.empty:
-        old_df = pd.DataFrame(columns=["id", "Componente", "Valor"])
+        old_df = pd.DataFrame(columns=["codigo", "descricao", "unidade", "valor"])
 
     edited_df = st.data_editor(
         old_df,
         num_rows="dynamic",       
         use_container_width=True,  
         column_config={
-            "id": st.column_config.Column(
-                "ID",
-                disabled=True,  # visível mas não editável
+            "codigo": st.column_config.TextColumn(
+                "Código",
+                help="Código alfanumérico de 4 caracteres",
+                max_chars=4,
+                validate="^[a-zA-Z0-9]{4}$",
                 width="small"
             ),
-            "Componente": st.column_config.TextColumn(
-                "Componente",
-                help="Nome do componente",
+            "descricao": st.column_config.TextColumn(
+                "Descrição",
+                help="Descrição ou componente",
                 max_chars=50,
-                width="large"   # deixa maior que o padrão
+                width="large"
             ),
-            "Valor": st.column_config.NumberColumn(
+            "unidade": st.column_config.TextColumn(
+                "Unidade",
+                help="Unidade de medida",
+                max_chars=10,
+                width="small"
+            ),
+            "valor": st.column_config.NumberColumn(
                 "Valor",
                 help="Valor do componente",
                 min_value=0,
@@ -115,34 +123,33 @@ def custos_page():
     )
 
     if st.button("Salvar Alterações"):
-        # Converte a coluna 'id' para int ou None, caso fique em branco
-        edited_df["id"] = edited_df["id"].apply(
-            lambda x: int(x) if str(x).isdigit() else None
-        )
+        # Ordena o DataFrame pelo código
+        edited_df = edited_df.sort_values(by="codigo")
 
-        # Identifica linhas removidas (old_ids que não estão mais em new_ids)
-        old_ids = set(old_df["id"].dropna().astype(int))
-        new_ids = set(edited_df["id"].dropna().astype(int))
-        removed_ids = old_ids - new_ids
-        for r_id in removed_ids:
-            remove_custo(r_id)
+        # Identifica linhas removidas (old_codigos que não estão mais em new_codigos)
+        old_codigos = set(old_df["codigo"])
+        new_codigos = set(edited_df["codigo"])
+        removed_codigos = old_codigos - new_codigos
+        for r_codigo in removed_codigos:
+            remove_custo(r_codigo)
 
         # Identifica linhas criadas ou atualizadas
         for _, row in edited_df.iterrows():
-            row_id = row["id"]
-            componente = row["Componente"]
-            valor = float(row["Valor"]) if row["Valor"] else 0.0
+            codigo = row["codigo"]
+            descricao = row["descricao"]
+            unidade = row["unidade"]
+            valor = float(row["valor"]) if row["valor"] else 0.0
 
-            if row_id is None:
+            if codigo not in old_codigos:
                 # Registro novo
-                add_custo(componente, valor)
+                add_custo(codigo, descricao, unidade, valor)
             else:
                 # Registro existente => update
-                update_custo(row_id, componente, valor)
+                update_custo(codigo, descricao, unidade, valor)
 
         st.success("Alterações salvas com sucesso!")
         st.rerun()
-
+        
 def parametros_page():
     st.markdown("#### Parâmetros")
     
