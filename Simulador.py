@@ -6,12 +6,20 @@ from functions.database import init_db, add_admin_if_not_exists, get_all_users, 
 from functions.auth import verify_login
 from functions.layout import show_logo
 from functions.style import set_custom_style
+
 from functions.helpers import (
-    calcula_custo_elevador,
-    calcular_dimensoes_e_explicacao,
+    agrupar_respostas_por_pagina
+)
+
+from functions.calc import (
+    calcular_dimensionamento_completo,
     calcular_componentes
 )
-from functions.admin import usuarios_page, custos_page, parametros_page
+
+from functions.admin import (
+    usuarios_page, custos_page, 
+    parametros_page
+)
 
 st.set_page_config(
     page_title="SCP - Fuza Elevadores",
@@ -156,7 +164,7 @@ def main():
         # COLUNA 2: Resultado / Cálculo
         # ---------------------------------------------
         with col2:
-            dimensionamento, explicacao = calcular_dimensoes_e_explicacao(respostas)
+            dimensionamento, explicacao = calcular_dimensionamento_completo(respostas)
             st.markdown("#### Resultado Calculado")
             if len(paginas_preenchidas) < len(paginas):
                 paginas_faltantes = set(paginas) - set(paginas_preenchidas)
@@ -178,190 +186,74 @@ def main():
                     with st.expander("Cálculo Dimensionamento", expanded=False):
                         st.markdown(explicacao)
 
-
                     with st.expander("Cálculo Componentes", expanded=False):
-                        componentes, explicacoes, custos, custo_total, todos_custos = calcular_componentes(dimensionamento, respostas)
-                        
-                        def format_currency(value):
-                            # Formata com ponto de milhar e vírgula decimal (ex: 1.234,56)
-                            return f"{value:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
-                        
+                        componentes_formatados, custos, custo_total, todos_custos = calcular_componentes(dimensionamento, respostas)
+                                
                         # Mapeamento manual dos códigos para os grupos desejados
                         group_mapping = {
                             # Grupo CABINE
-                            "CH01": "CABINE",
-                            "CH02": "CABINE",
-                            "CH06": "CABINE",
-                            "CH07": "CABINE",
-                            "FE01": "CABINE",
+                            "CH01": "CABINE", "CH02": "CABINE", "CH06": "CABINE", "CH07": "CABINE", "FE01": "CABINE",
                             
                             # Grupo CARRINHO
-                            "PE01": "CARRINHO",
-                            "PE02": "CARRINHO",
-                            "PE03": "CARRINHO",
-                            "PE04": "CARRINHO",
-                            "PE05": "CARRINHO",
-                            "PE06": "CARRINHO",
-                            "FE02": "CARRINHO",
-                            "PE07": "CARRINHO",
-                            "PE08": "CARRINHO",
-                            "PE09": "CARRINHO",
-                            "PE10": "CARRINHO",
-                            "PE11": "CARRINHO",
+                            "PE01": "CARRINHO", "PE02": "CARRINHO", "PE03": "CARRINHO", "PE04": "CARRINHO",
+                            "PE05": "CARRINHO", "PE06": "CARRINHO", "FE02": "CARRINHO", "PE07": "CARRINHO",
+                            "PE08": "CARRINHO", "PE09": "CARRINHO", "PE10": "CARRINHO", "PE11": "CARRINHO",
                             "PE12": "CARRINHO",
                             
                             # Grupo TRACAO
-                            "MO01": "TRACAO",
-                            "PE13": "TRACAO",
-                            "PE14": "TRACAO",
-                            "PE15": "TRACAO",
-                            "PE16": "TRACAO",
-                            "PE17": "TRACAO",
-                            "PE18": "TRACAO",
-                            "PE19": "TRACAO",
-                            "PE20": "TRACAO",
-                            "PE21": "TRACAO",
-                            "PE22": "TRACAO",
-                            "PE23": "TRACAO",
-                            "PE24": "TRACAO"
+                            "MO01": "TRACAO", "PE13": "TRACAO", "PE14": "TRACAO", "PE15": "TRACAO",
+                            "PE16": "TRACAO", "PE17": "TRACAO", "PE18": "TRACAO", "PE19": "TRACAO",
+                            "PE20": "TRACAO", "PE21": "TRACAO", "PE22": "TRACAO", "PE23": "TRACAO",
+                            "PE24": "TRACAO",
+
+                            # Grupo SISTEMAS COMPLEMENTARES
+                            "CC01": "SISTEMAS COMPLEMENTARES",
+                            "CC02": "SISTEMAS COMPLEMENTARES"
                         }
                         
-                        # Mapeamento de unidades de medida para cada componente (não utilizado na explicação agora)
-                        unit_mapping = {
-                            "CH01": "unidades",
-                            "CH02": "unidades",
-                            "CH06": "unidades",
-                            "CH07": "unidades",
-                            "FE01": "unidades",
-                            "PE01": "unidades",
-                            "PE02": "unidades",
-                            "PE03": "unidades",
-                            "PE04": "unidades",
-                            "PE05": "unidades",
-                            "PE06": "unidades",
-                            "FE02": "unidades",
-                            "PE07": "unidades",
-                            "PE08": "unidades",
-                            "PE09": "unidades",
-                            "PE10": "unidades",
-                            "PE11": "unidades",
-                            "PE12": "unidades",
-                            "MO01": "unidade",
-                            "PE13": "unidades",
-                            "PE14": "metros",
-                            "PE15": "unidades",
-                            "PE16": "unidades",
-                            "PE17": "unidades",
-                            "PE18": "unidades",
-                            "PE19": "unidades",
-                            "PE20": "unidades",
-                            "PE21": "unidades",
-                            "PE22": "unidades",
-                            "PE23": "unidades",
-                            "PE24": "unidades"
-                        }
-                        
-                        # Ordem dos grupos – os dois últimos (PAVIMENTOS e SISTEMAS COMPLEMENTARES) poderão ficar sem itens
+                        # Ordem dos grupos
                         group_order = ["CABINE", "CARRINHO", "TRACAO", "PAVIMENTOS", "SISTEMAS COMPLEMENTARES"]
                         group_items = {group: [] for group in group_order}
                         
+                        def format_number(value):
+                                return f"{value:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+
+                        
                         # Agrupa os itens de acordo com o mapeamento
-                        for codigo, quantidade in componentes.items():
-                            # Se o código não estiver mapeado, atribui-o ao grupo "CABINE" por padrão
-                            grupo = group_mapping.get(codigo, "CABINE")
-                            unit_cost = todos_custos[codigo].valor
-                            total_cost = custos[codigo]
-                            component_name = todos_custos[codigo].descricao
-                            formatted_unit_cost = format_currency(unit_cost)
-                            formatted_total_cost = format_currency(total_cost)
-                            # Obtém a explicação para esse componente
-                            explicacao_text = explicacoes.get(codigo, "")
-                            # Obtém a unidade de medida (padrão "unidades" se não definido)
-                            unidade = unit_mapping.get(codigo, "unidades")
+                        for codigo, info in componentes_formatados.items():
+                            grupo = group_mapping.get(codigo, "CABINE")  # Default para CABINE se não mapeado
+                            formatted_unit_cost = format_number(info['custo_unitario'])
+                            formatted_total_cost = format_number(info['custo_total'])
                             line = (
-                                f"**{component_name}** "
-                                f"({codigo}) - {explicacao_text} - {quantidade} {unidade}, "
-                                f"Custo Unitário: {formatted_unit_cost}, Custo Total: {formatted_total_cost}"
+                                f"**{info['descricao']}** ({codigo}) - "
+                                f"{info['quantidade']} {info['unidade']}, "
+                                f"Custo Unitário: {formatted_unit_cost}, "
+                                f"Custo Total: {formatted_total_cost}, "
+                                f"Cálculo: {info['explicacao']}"
                             )
                             group_items[grupo].append(line)
                         
                         # Exibe cada grupo com seu título e itens (se houver)
                         for grupo in group_order:
-                            st.markdown(f"##### {grupo}")
+                            st.markdown(f"###### {grupo}")
                             if group_items[grupo]:
                                 for line in group_items[grupo]:
                                     st.markdown(line)
                             else:
                                 st.markdown("*Sem itens*")
-
-                     
+                        
                     with st.expander("Composição Preço", expanded=False):
                         st.info("Conteúdo não disponível.")
                     
-                    # Exibe custo final
-                    st.markdown(f"O custo estimado para este modelo é de:")
-                    st.markdown(f"<h3 class='custo'>R$ {custo_total:,.2f}</h3>", unsafe_allow_html=True)
+                # Exibe custo final
+                st.markdown(f"O custo estimado para este modelo é de:")
+                st.markdown(f"<h3 class='custo'>R$ {custo_total:,.2f}</h3>", unsafe_allow_html=True)
         st.markdown("---")
- 
 
         if st.button("Iniciar Nova Simulação", key="reiniciar"):
             st.session_state["respostas"] = {}
             st.switch_page("pages/1_cliente.py")
             st.rerun()
-
-def agrupar_respostas_por_pagina(respostas):
-    """Agrupa as respostas de acordo com cada página, para exibir no resumo."""
-    def get_unidade(campo, valor, modelo):
-        unidades = {
-            "Capacidade": "pessoas" if "passageiro" in modelo.lower() else "kg",
-            "Pavimentos": "",
-            "Altura do Poço": "m",
-            "Largura do Poço": "m",
-            "Comprimento do Poço": "m",
-            "Altura da Cabine": "m",
-            "Espessura": "mm",
-            "Altura Porta": "m",
-            "Largura Porta": "m",
-            "Altura Porta Pavimento": "m",
-            "Largura Porta Pavimento": "m"
-        }
-        return unidades.get(campo, "")
-
-    paginas = {
-        "Cliente": ["Solicitante", "Empresa", "Telefone", "Email"],
-        "Elevador": [
-            "Modelo do Elevador", "Capacidade", "Acionamento", "Tração", "Contrapeso",
-            "Altura do Poço", "Largura do Poço", "Comprimento do Poço", "Pavimentos"
-        ],
-        "Cabine": [
-            "Material", "Tipo de Inox", "Espessura", "Saída", "Altura da Cabine",
-            "Piso", "Material Piso Cabine"
-        ],
-        "Porta Cabine": [
-            "Modelo Porta", "Material Porta", "Tipo de Inox Porta",
-            "Folhas Porta", "Altura Porta", "Largura Porta"
-        ],
-        "Porta Pavimento": [
-            "Modelo Porta Pavimento", "Material Porta Pavimento",
-            "Tipo de Inox Porta Pavimento", "Folhas Porta Pavimento",
-            "Altura Porta Pavimento", "Largura Porta Pavimento"
-        ]
-    }
-    modelo_elevador = respostas.get("Modelo do Elevador", "").lower()
-
-    respostas_agrupadas = {}
-    for pagina, campos in paginas.items():
-        dados_pagina = {}
-        for campo in campos:
-            if campo in respostas:
-                valor = respostas[campo]
-                unidade = get_unidade(campo, valor, modelo_elevador)
-                if unidade:
-                    valor = f"{valor} {unidade}"
-                dados_pagina[campo] = valor
-        if dados_pagina:
-            respostas_agrupadas[pagina] = dados_pagina
-    return respostas_agrupadas
 
 if __name__ == "__main__":
     main()
