@@ -20,7 +20,7 @@ def passo_elevador():
     if "respostas" not in st.session_state:
         st.session_state["respostas"] = {}
     
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
     
     with col1:
         modelos = ["Passageiro", "Carga", "Monta Prato", "Plataforma Acessibilidade"]
@@ -34,16 +34,36 @@ def passo_elevador():
         )
 
         if modelo == "Passageiro":
-            capacidade = st.number_input(
+            # Inicializa as variáveis com os valores salvos ou padrão
+            capacidade_passageiro = st.session_state["respostas"].get("Capacidade Passageiro", 1)
+            capacidade_kg = st.session_state["respostas"].get("Capacidade", 80.0)
+
+            # Input para capacidade de passageiros
+            capacidade_passageiro = st.number_input(
                 "Capacidade (Número de Pessoas):",
                 min_value=1,
                 max_value=50,
                 step=1,
-                value=int(st.session_state["respostas"].get("Capacidade", 1)),
-                key="capacidade_pessoas"
+                value=int(capacidade_passageiro),
+                key="capacidade_passageiro"
             )
+            # Atualiza capacidade_kg baseado em capacidade_passageiro
+            capacidade_kg = capacidade_passageiro * 80
+
+            # Input para capacidade em kg, desabilitado para edição
+            st.number_input(
+                "Capacidade (em kg):",
+                min_value=80.0,
+                max_value=4000.0,
+                step=10.0,
+                value=float(capacidade_kg),
+                key="capacidade_kg_passageiro",
+                disabled=True
+            )
+
+
         else:
-            capacidade = st.number_input(
+            capacidade_kg = st.number_input(
                 "Capacidade (em kg):",
                 min_value=0.0,
                 max_value=10000.0,
@@ -52,6 +72,7 @@ def passo_elevador():
                 key="capacidade_kg"
             )
 
+    with col2:
         acionamento = st.selectbox(
             "Acionamento:",
             options=["Motor", "Hidráulico", "Carretel"],
@@ -68,24 +89,23 @@ def passo_elevador():
             )
 
         if acionamento == "Motor":
+            # Obtém a escolha atual da saída
+            saida_atual = st.session_state["respostas"].get("Saída", "Padrão")
+
+            # Opções de contrapeso, removendo "Traseiro" se saída for "Oposta"
+            opcoes_contrapeso = ["Traseiro", "Lateral"]
+            if saida_atual == "Oposta":
+                opcoes_contrapeso.remove("Traseiro")
+
             contrapeso = st.selectbox(
                 "Contrapeso:",
-                options=["Traseiro", "Lateral"],
-                index=["Traseiro", "Lateral"].index(st.session_state["respostas"].get("Contrapeso", "Traseiro")),
+                options=opcoes_contrapeso,
+                index=opcoes_contrapeso.index(st.session_state["respostas"].get("Contrapeso", "Lateral")),
                 key="contrapeso"
             )
 
-    with col2:
-        altura_poco = st.number_input(
-            "Altura do Poço (m):",
-            min_value=0.0,
-            max_value=100.0,
-            step=0.01,
-            format="%.2f",
-            value=float(st.session_state["respostas"].get("Altura do Poço", 3.0)),
-            key="altura_poco"
-        )
 
+    with col3:
         largura_poco = st.number_input(
             "Largura do Poço (m):",
             min_value=0.0,
@@ -106,6 +126,16 @@ def passo_elevador():
             key="comprimento_poco"
         )
 
+        altura_poco = st.number_input(
+            "Altura do Poço (m):",
+            min_value=0.0,
+            max_value=100.0,
+            step=0.01,
+            format="%.2f",
+            value=float(st.session_state["respostas"].get("Altura do Poço", 3.0)),
+            key="altura_poco"
+        )
+
         pavimentos = st.number_input(
             "Pavimentos:",
             min_value=2,
@@ -118,7 +148,11 @@ def passo_elevador():
     if st.button("Salvar", key="salvar_elevador"):
         if altura_poco > 0 and largura_poco > 0 and comprimento_poco > 0:
             st.session_state["respostas"]["Modelo do Elevador"] = modelo
-            st.session_state["respostas"]["Capacidade"] = capacidade
+            if modelo == "Passageiro":
+                #st.session_state["respostas"]["Capacidade Passageiro"] = capacidade_passageiro
+                st.session_state["respostas"]["Capacidade"] = capacidade_passageiro
+            else:
+                st.session_state["respostas"]["Capacidade"] = capacidade_kg
             st.session_state["respostas"]["Acionamento"] = acionamento
             if acionamento in ["Motor", "Carretel"]:
                 st.session_state["respostas"]["Tração"] = tracao
@@ -129,7 +163,7 @@ def passo_elevador():
             st.session_state["respostas"]["Comprimento do Poço"] = comprimento_poco
             st.session_state["respostas"]["Pavimentos"] = pavimentos
 
-            st.switch_page("pages/3_cabine.py")
+            st.switch_page("pages/3_portas.py")
             st.rerun()
         else:
             st.error("As dimensões do poço devem ser maiores que zero.")

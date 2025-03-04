@@ -6,6 +6,7 @@ blinker==1.9.0
 cachetools==5.5.0
 captcha==0.6.0
 certifi==2024.12.14
+chardet==5.2.0
 charset-normalizer==3.4.0
 click==8.1.7
 extra-streamlit-components==0.1.71
@@ -34,6 +35,7 @@ python-dateutil==2.9.0.post0
 pytz==2024.2
 PyYAML==6.0.2
 referencing==0.35.1
+reportlab==4.3.1
 requests==2.32.3
 rich==13.9.4
 rpds-py==0.22.3

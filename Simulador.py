@@ -1,25 +1,14 @@
 import streamlit as st
 import yaml
 from yaml.loader import SafeLoader
-import math
+from functions.calc import calcular_dimensionamento_completo, calcular_componentes
+from functions.pdf_utils import gerar_pdf_demonstrativo
 from functions.database import init_db, add_admin_if_not_exists, get_all_users, get_user, inserir_produtos_iniciais, Session
 from functions.auth import verify_login
 from functions.layout import show_logo
 from functions.style import set_custom_style
-
-from functions.helpers import (
-    agrupar_respostas_por_pagina
-)
-
-from functions.calc import (
-    calcular_dimensionamento_completo,
-    calcular_componentes
-)
-
-from functions.admin import (
-    usuarios_page, custos_page, 
-    parametros_page
-)
+from functions.helpers import agrupar_respostas_por_pagina
+from functions.admin import usuarios_page, custos_page,parametros_page
 
 st.set_page_config(
     page_title="SCP - Fuza Elevadores",
@@ -28,7 +17,6 @@ st.set_page_config(
 
 # Inicializa DB e garante que exista o admin
 init_db()
-
 #session = Session()
 #inserir_produtos_iniciais(session)
 #session.close()
@@ -51,6 +39,9 @@ def load_config():
     return config
 
 config = load_config()
+
+def format_number(value):
+    return f"{value:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
 
 def main():
     """Função principal do app que gerencia login e redirecionamento das páginas."""
@@ -139,7 +130,7 @@ def main():
         respostas_agrupadas = agrupar_respostas_por_pagina(respostas)
 
         # Lista de páginas que devem ser preenchidas
-        paginas = ["Cliente", "Elevador", "Cabine", "Porta Cabine", "Porta Pavimento"]
+        paginas = ["Cliente", "Elevador", "Cabine", "Portas"]
         paginas_preenchidas = list(respostas_agrupadas.keys())
 
         col1, col2 = st.columns(2)
@@ -154,10 +145,34 @@ def main():
             else:
                 for pagina, dados in respostas_agrupadas.items():
                     with st.expander(pagina, expanded=False):
-                        # Monta uma string única separada por vírgulas
-                        itens_formatados = [f"**{chave}**: {valor}" for chave, valor in dados.items()]
-                        # Junta tudo em uma linha só, separado por vírgula e espaço
-                        final_str = ", ".join(itens_formatados)
+                        itens_formatados = []
+                        
+                        # Separação personalizada dentro de 'Portas'
+                        if pagina == "Portas":
+                            portas_cabine = []
+                            portas_pavimento = []
+                            
+                            for chave, valor in dados.items():
+                                if "Pavimento" in chave:
+                                    portas_pavimento.append(f"**{chave}**: {valor}")
+                                else:
+                                    portas_cabine.append(f"**{chave}**: {valor}")
+
+                            # Adiciona título antes de cada categoria
+                            if portas_cabine:
+                                itens_formatados.append("##### Portas de Cabine")
+                                itens_formatados.extend(portas_cabine)
+
+                            if portas_pavimento:
+                                itens_formatados.append("\n##### Portas de Pavimento")
+                                itens_formatados.extend(portas_pavimento)
+
+                        else:
+                            # Para outras páginas, apenas formatar os itens normalmente
+                            itens_formatados = [f"**{chave}**: {valor}" for chave, valor in dados.items()]
+
+                        # Monta a string com quebras de linha
+                        final_str = "\n".join(itens_formatados)
                         st.markdown(final_str)
 
         # ---------------------------------------------
@@ -165,7 +180,7 @@ def main():
         # ---------------------------------------------
         with col2:
             dimensionamento, explicacao = calcular_dimensionamento_completo(respostas)
-            st.markdown("#### Resultado Calculado")
+            st.markdown("#### Cálculos")
             if len(paginas_preenchidas) < len(paginas):
                 paginas_faltantes = set(paginas) - set(paginas_preenchidas)
                 st.warning(f"Faltam informações das seguintes páginas: {', '.join(paginas_faltantes)}.")
@@ -187,60 +202,38 @@ def main():
                         st.markdown(explicacao)
 
                     with st.expander("Cálculo Componentes", expanded=False):
-                        componentes_formatados, custos, custo_total, todos_custos = calcular_componentes(dimensionamento, respostas)
-                                
-                        # Mapeamento manual dos códigos para os grupos desejados
-                        group_mapping = {
-                            # Grupo CABINE
-                            "CH01": "CABINE", "CH02": "CABINE", "CH06": "CABINE", "CH07": "CABINE", "FE01": "CABINE",
-                            
-                            # Grupo CARRINHO
-                            "PE01": "CARRINHO", "PE02": "CARRINHO", "PE03": "CARRINHO", "PE04": "CARRINHO",
-                            "PE05": "CARRINHO", "PE06": "CARRINHO", "FE02": "CARRINHO", "PE07": "CARRINHO",
-                            "PE08": "CARRINHO", "PE09": "CARRINHO", "PE10": "CARRINHO", "PE11": "CARRINHO",
-                            "PE12": "CARRINHO",
-                            
-                            # Grupo TRACAO
-                            "MO01": "TRACAO", "PE13": "TRACAO", "PE14": "TRACAO", "PE15": "TRACAO",
-                            "PE16": "TRACAO", "PE17": "TRACAO", "PE18": "TRACAO", "PE19": "TRACAO",
-                            "PE20": "TRACAO", "PE21": "TRACAO", "PE22": "TRACAO", "PE23": "TRACAO",
-                            "PE24": "TRACAO",
 
-                            # Grupo SISTEMAS COMPLEMENTARES
-                            "CC01": "SISTEMAS COMPLEMENTARES",
-                            "CC02": "SISTEMAS COMPLEMENTARES"
-                        }
-                        
-                        # Ordem dos grupos
-                        group_order = ["CABINE", "CARRINHO", "TRACAO", "PAVIMENTOS", "SISTEMAS COMPLEMENTARES"]
-                        group_items = {group: [] for group in group_order}
-                        
-                        def format_number(value):
-                                return f"{value:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+                        componentes, custos, custo_total, todos_custos = calcular_componentes(dimensionamento, respostas)
 
-                        
-                        # Agrupa os itens de acordo com o mapeamento
-                        for codigo, info in componentes_formatados.items():
-                            grupo = group_mapping.get(codigo, "CABINE")  # Default para CABINE se não mapeado
-                            formatted_unit_cost = format_number(info['custo_unitario'])
-                            formatted_total_cost = format_number(info['custo_total'])
-                            line = (
-                                f"**{info['descricao']}** ({codigo}) - "
-                                f"{info['quantidade']} {info['unidade']}, "
-                                f"Custo Unitário: {formatted_unit_cost}, "
-                                f"Custo Total: {formatted_total_cost}, "
-                                f"Cálculo: {info['explicacao']}"
-                            )
-                            group_items[grupo].append(line)
-                        
-                        # Exibe cada grupo com seu título e itens (se houver)
-                        for grupo in group_order:
-                            st.markdown(f"###### {grupo}")
-                            if group_items[grupo]:
-                                for line in group_items[grupo]:
+                        # Agrupar componentes
+                        grupos = {}
+                        for codigo, info in componentes.items():
+                            grupo = info['grupo']
+                            subgrupo = info['subgrupo']
+                            if grupo not in grupos:
+                                grupos[grupo] = {}
+                            if subgrupo not in grupos[grupo]:
+                                grupos[grupo][subgrupo] = []
+                            grupos[grupo][subgrupo].append(info)
+
+                        # Exibir componentes
+                        for grupo, subgrupos in grupos.items():
+                            st.markdown(f"##### {grupo}")
+                            for subgrupo, itens in subgrupos.items():
+                                #st.markdown(f"#### {subgrupo}")
+                                for item in itens:
+                                    formatted_unit_cost = format_number(item['custo_unitario'])
+                                    formatted_total_cost = format_number(item['custo_total'])
+                                    line = (
+                                        f"**{item['descricao']}** ({item['codigo']}) - "
+                                        f"{item['quantidade']} {item['unidade']}, "
+                                        f"Custo Unitário: {formatted_unit_cost}, "
+                                        f"Custo Total: {formatted_total_cost}, "
+                                        f"Cálculo: {item['explicacao']}"
+                                    )
                                     st.markdown(line)
-                            else:
-                                st.markdown("*Sem itens*")
+
+                        st.markdown(f"**Custo Total: {format_number(custo_total)}**")
                         
                     with st.expander("Composição Preço", expanded=False):
                         st.info("Conteúdo não disponível.")
@@ -248,6 +241,78 @@ def main():
                 # Exibe custo final
                 st.markdown(f"O custo estimado para este modelo é de:")
                 st.markdown(f"<h3 class='custo'>R$ {custo_total:,.2f}</h3>", unsafe_allow_html=True)
+                
+                if nivel != 'vendedor':
+                    st.markdown(" ")
+
+                    # Criando duas colunas com o mesmo tamanho
+                    col1, col2 = st.columns(2)
+
+                    # Criando uma variável para armazenar o PDF gerado
+                    pdf_bytes = None
+
+                    # Botão para gerar o PDF na primeira coluna
+                    with col1:
+                        gerar_pdf = st.button("Gerar PDF", use_container_width=True)
+
+                    # Se o usuário clicar, geramos o PDF
+                    if gerar_pdf:
+                        componentes, custos, custo_total, todos_custos = calcular_componentes(dimensionamento, respostas)
+                        respostas_agrupadas = agrupar_respostas_por_pagina(respostas)
+                        
+                        grupos = {}
+                        for codigo, info in componentes.items():
+                            grupo = info['grupo']
+                            subgrupo = info['subgrupo']
+                            if grupo not in grupos:
+                                grupos[grupo] = {}
+                            if subgrupo not in grupos[grupo]:
+                                grupos[grupo][subgrupo] = []
+                            grupos[grupo][subgrupo].append(info)
+                        
+                        pdf_bytes = gerar_pdf_demonstrativo(
+                            dimensionamento,
+                            explicacao,
+                            componentes,
+                            custo_total,
+                            respostas,
+                            respostas_agrupadas,
+                            grupos
+                        )
+
+                    # Botão de download na segunda coluna (aparece apenas se o PDF foi gerado)
+                    with col2:
+                        if pdf_bytes:
+                            st.download_button(
+                                label="Baixar PDF",
+                                data=pdf_bytes,
+                                file_name="relatorio_calculo.pdf",
+                                mime="application/pdf",
+                                use_container_width=True
+                            )
+
+                    # Botão 2 - Proposta Comercial
+                    #if st.button("Gerar Proposta Comercial"):
+                    #    # Precisamos das respostas agrupadas para exibir no PDF
+                    #    from functions.helpers import agrupar_respostas_por_pagina
+                    #    respostas_agrupadas = agrupar_respostas_por_pagina(respostas)
+                    #    
+                    #    nome_cliente = respostas.get("Solicitante", "Cliente")
+                    #    
+                    #    pdf_bytes = gerar_pdf_proposta_comercial(
+                    #       dimensionamento,
+                    #       componentes_formatados,
+                    #       custo_total,
+                    #       respostas_agrupadas,
+                    #        nome_cliente
+                    #    )
+                    #    st.download_button(
+                    #        label="Baixar Proposta Comercial",
+                    #        data=pdf_bytes,
+                    #        file_name="proposta_comercial.pdf",
+                    #        mime="application/pdf"
+                    #    )    
+        
         st.markdown("---")
 
         if st.button("Iniciar Nova Simulação", key="reiniciar"):

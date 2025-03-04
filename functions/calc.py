@@ -18,59 +18,65 @@ def calcular_dimensionamento_completo(respostas: dict):
     contrapeso = respostas.get("Contrapeso", "")
     modelo = respostas.get("Modelo do Elevador", "")
     capacidade_original = float(respostas.get("Capacidade", 0))
-
+    saida = respostas.get("Saída", "")
+    
     # Calcular largura
     sub_largura = 0.42 if largura_poco <= 1.5 else 0.48
     largura = largura_poco - sub_largura
     if contrapeso == "Lateral":
         largura -= 0.23
-
+    
     # Calcular comprimento
     comprimento = comprimento_poco - 0.10
     ajuste_porta = 0.0
     if modelo_porta == "Automática":
-        if folhas_porta in ["2", "Central"]:
+        if folhas_porta == "Central":
             ajuste_porta = 0.138
+        elif folhas_porta == "2":
+            ajuste_porta = 0.21
         elif folhas_porta == "3":
             ajuste_porta = 0.31
-        elif folhas_porta == "4":
-            ajuste_porta = 0.21
     elif modelo_porta == "Pantográfica":
         ajuste_porta = 0.13
     elif modelo_porta == "Pivotante":
         ajuste_porta = 0.04
+    
+    # Multiplicar ajuste da porta por 2 se a saída for oposta
+    if saida == "Oposta":
+        ajuste_porta *= 2
+    
     comprimento -= ajuste_porta
     if contrapeso == "Traseiro":
         comprimento -= 0.23
-
+    
     # Arredondar dimensões
     largura = round(largura, 2)
     comprimento = round(comprimento, 2)
-
-    # Calcular capacidade e tração
+    
+    # Calcular capacidade e tracao
     if "Passageiro" in modelo:
         capacidade_cabine = capacidade_original * 80
     else:
         capacidade_cabine = capacidade_original
     tracao_cabine = capacidade_cabine / 2 + 500
-
+    
     # Calcular chapas
     chapas_info = calcular_chapas_cabine(altura, largura, comprimento)
-
-    # Gerar explicações
+    
+    # Gerar explicações detalhadas
     explicacoes = f"""
-    **Altura**: informada pelo usuário, valor final={altura:.2f}m;
-    **Largura**: poço={largura_poco:.2f}m, subtrai={sub_largura:.2f}m{', contrapeso lateral (subtrai 0,23m)' if contrapeso == 'Lateral' else ''}, valor final={largura:.2f}m;
-    **Comprimento**: poço={comprimento_poco:.2f}m, subtrai=0.10m, porta {modelo_porta}{f' {folhas_porta} folhas' if folhas_porta else ''}{', contrapeso traseiro (subtrai 0,23m)' if contrapeso == 'Traseiro' else ''}, valor final={comprimento:.2f}m;
-    **Capacidade**: {'pessoas' if 'Passageiro' in modelo else 'kg'} {capacidade_original} {'* 80 kg' if 'Passageiro' in modelo else ''} = {capacidade_cabine:.2f} kg;
-    **Tração**: (Capacidade Cabine / 2) + 500 = {tracao_cabine:.2f} kg.
+    **Dimensões Cabine:** Largura: Poço = {largura_poco:.2f}m - ({sub_largura:.2f}m)
+    {'-Contrapeso lateral (0,23m),' if contrapeso == 'Lateral' else ''}={largura:.2f}m; 
+    Comprimento: Poço = {comprimento_poco:.2f}m - (0.10m) - Ajuste de porta {modelo_porta} {f'({folhas_porta} folhas)' if folhas_porta else ''} {'(x2 pois saída é oposta)' if saida == 'Oposta' else ''} ({ajuste_porta:.2f}m)
+    {'- Contrapeso traseiro (0,23m)' if contrapeso == 'Traseiro' else ''} = {comprimento:.2f}m; Altura: Informada pelo usuário = {altura:.2f}m
     """
-
+    explicacoes += f"\n**Capacidade e Tração Cabine**: {'pessoas' if 'Passageiro' in modelo else 'kg'} {capacidade_original} {'* 80 kg' if 'Passageiro' in modelo else ''} = {capacidade_cabine:.2f} kg; (Capacidade Cabine / 2) + 500 = {tracao_cabine:.2f} kg.\n"
+    
     if isinstance(chapas_info, dict):
-        explicacoes += formatar_demanda_placas(chapas_info)
+        explicacoes += "\n" + formatar_demanda_placas(chapas_info)
     else:
         explicacoes += f"\nErro no cálculo de chapas: {chapas_info}"
-
+    
     # Montar o resultado
     dimensionamento = {
         "cab": {
@@ -90,98 +96,161 @@ def calcular_dimensionamento_completo(respostas: dict):
             }
         }
     }
-
+    
     return dimensionamento, explicacoes
 
 def calcular_componentes(dimensionamento, respostas):
     componentes = {}
-    explicacoes = {}
     custos = {}
     custo_total = 0
     
-    # Obter todos os custos do banco de dados
     todos_custos = {custo.codigo: custo for custo in get_all_custos()}
 
-    # Grupo Chapa - Chapa Corpo Cabine
+    def adicionar_componente(codigo, quantidade, grupo, subgrupo, explicacao, nome_outro=None, valor_outro=None, comprimento=None):
+        codigo_original = codigo
+        contador = 1
+        while codigo in componentes:
+            if codigo == "INF":
+                codigo = f"INF_{contador}"
+            else:
+                codigo = f"{codigo_original}_{contador}"
+            contador += 1
 
-    material = respostas.get("Material", "")
-    tipo_inox = respostas.get("Tipo de Inox", "")
+        if codigo.startswith("INF"):
+            if nome_outro and valor_outro:
+                descricao = nome_outro
+                custo_unitario = float(valor_outro)
+                unidade = "un"
+            else:
+                print(f"ERRO: Item 'OUTROS' ({codigo}) sem nome ou valor especificado")
+                return
+        elif codigo_original in todos_custos:
+            descricao = todos_custos[codigo_original].descricao
+            custo_unitario = todos_custos[codigo_original].valor
+            unidade = todos_custos[codigo_original].unidade
+        else:
+            print(f"ERRO: Código {codigo_original} não encontrado em todos_custos")
+            return
+
+        if comprimento is not None and unidade == "m":
+            custo_total_item = quantidade * comprimento * custo_unitario
+            quantidade_efetiva = quantidade * comprimento
+        else:
+            custo_total_item = quantidade * custo_unitario
+            quantidade_efetiva = quantidade
+
+        custos[codigo] = custo_total_item
+        nonlocal custo_total
+        custo_total += custo_total_item
+        
+        componentes[codigo] = {
+            "codigo": codigo,
+            "descricao": descricao,
+            "quantidade": quantidade_efetiva,
+            "unidade": unidade,
+            "custo_unitario": custo_unitario,
+            "custo_total": custo_total_item,
+            "explicacao": explicacao,
+            "grupo": grupo,
+            "subgrupo": subgrupo
+        }
+ 
+    # Variáveis obtidas do dimensionamento e respostas
+    #elevador
+    comprimento_poco = float(respostas.get("Comprimento do Poço", 0))
+    largura_poco = float(respostas.get("Largura do Poço", 0))
+    altura_poco = float(respostas.get("Altura do Poço", 0))
+    pavimentos = int(respostas.get("Pavimentos", 0))
+    acionamento = respostas.get("Acionamento", "")
+    tracao = respostas.get("Tração", "")
+    contrapeso_posicao = respostas.get("Contrapeso", "")
+    modelo_elevador = respostas.get("Modelo do Elevador", "")
+    capacidade = dimensionamento['cab']['capacidade']
+    tracao_cabine = dimensionamento['cab']['tracao']
     
-    if material == "Inox":
-        codigo_chapa = "CH01" if tipo_inox == "304" else "CH02"
-    elif material == "Chapa Pintada":
-        codigo_chapa = "CH06"
-    elif material == "Alumínio":
-        codigo_chapa = "CH07"
+    #cabine
+    material = respostas.get("Material", "")
+    espessura = respostas.get("Espessura", "")  
+    piso_conta = respostas.get("Piso", "")
+    tipo_piso = respostas.get("Material Piso Cabine", "")
+    largura_cabine = dimensionamento['cab']['largura']
+    altura_cabine = dimensionamento['cab']['altura']
+    comprimento_cabine = dimensionamento['cab']['compr']
+
+    #chapas e perfis
+    qtd_chp_corpo = dimensionamento['cab']['chp']['corpo']
+    qtd_chp_piso = dimensionamento['cab']['chp']['piso']
+
+    # Grupo CABINE
+    # Chapa Corpo Cabine
+    if "Inox 304" in material:
+        codigo_chapa = "CH03" if espessura == "1,2" else "CH04"
+    elif "Inox 430" in material:
+        codigo_chapa = "CH01" if espessura == "1,2" else "CH02"
+    elif "Chapa Pintada" in material:
+        codigo_chapa = "CH05" if espessura == "1,2" else "CH06"
+    elif "Alumínio" in material:
+        codigo_chapa = "CH07" if espessura == "1,2" else "CH08"
+    elif material == "Outro":
+        codigo_chapa = "INF"
     else:
         codigo_chapa = None
 
-    if codigo_chapa and codigo_chapa in todos_custos:
-        componentes[codigo_chapa] = dimensionamento['cab']['chp']['corpo']
-        explicacoes[codigo_chapa] = "Cálculo: Quantidade baseada no dimensionamento das chapas do corpo da cabine."
+    if codigo_chapa:
+        quantidade = qtd_chp_corpo
+        explicacao = "Dim. chapas corpo cabine"
+        if codigo_chapa == "INF":
+            nome_outro = respostas.get("Material Outro Nome")
+            valor_outro = respostas.get("Material Outro Valor")
+            adicionar_componente(codigo_chapa, quantidade, "CABINE", "Chapas", explicacao, 
+                                 nome_outro=nome_outro, valor_outro=valor_outro)
+        else:
+            adicionar_componente(codigo_chapa, quantidade, "CABINE", "Chapas", explicacao)
+
+        if "Inox" in material or "Alumínio" in material:
+            codigo_chapa_adicional = "CH50" if "Inox" in material else "CH51"
+            quantidade = qtd_chp_corpo
+            explicacao = f"Código adicional para cada chapa de {material}"
+            adicionar_componente(codigo_chapa_adicional, quantidade, "CABINE", "Chapas", explicacao)
 
     # Parafusos
+    explicacao = "13 * painéis laterais) + (2 * painéis de fundo) + (2 * painéis de teto)"
     qtd_parafusos = (13 * dimensionamento['cab']['pnl']['lateral'] + 
                      2 * dimensionamento['cab']['pnl']['fundo'] + 
                      2 * dimensionamento['cab']['pnl']['teto'])
-    
-    if "FE01" in todos_custos:
-        componentes["FE01"] = qtd_parafusos
-        explicacoes["FE01"] = f"13 por painel lateral ({dimensionamento['cab']['pnl']['lateral']}), 2 por painel de fundo ({dimensionamento['cab']['pnl']['fundo']}) e teto ({ 2 * dimensionamento['cab']['pnl']['teto']})"
+    explicacao += f" = (13 * {dimensionamento['cab']['pnl']['lateral']}) + (2 * {dimensionamento['cab']['pnl']['fundo']}) + (2 * {dimensionamento['cab']['pnl']['teto']}) = {qtd_parafusos}"
+    adicionar_componente("FE01", qtd_parafusos, "CABINE", "Chapas", explicacao)
 
-    # Grupo Chapa - Chapa Piso Cabine
-    
-    piso_conta = respostas.get("Piso", "")
-    
+    # Chapa Piso Cabine
     if piso_conta == "Por conta da empresa":
-        codigo_chapa_piso = "CH02"
-        c_expl = "Cálculo: Quantidade baseada no dimensionamento das chapas do piso, mais 1 chapa extra."
-    elif piso_conta == "Por conta do cliente":
-        codigo_chapa_piso = "CH03"
-        c_expl = "Cálculo: Quantidade baseada no dimensionamento das chapas do piso."
+        if "Antiderrapante" in tipo_piso:
+            codigo_chapa_piso = "CH09"
+        elif tipo_piso == "Outro":
+            codigo_chapa_piso = "INF"
+        else:
+            codigo_chapa = None
     else:
-        codigo_chapa_piso = None
+        codigo_chapa_piso = "CH10"
 
-    if codigo_chapa_piso and codigo_chapa_piso in todos_custos:
-        qtd_chapas_piso = dimensionamento['cab']['chp']['piso']
-        componentes[codigo_chapa_piso] = componentes.get(codigo_chapa_piso, 0) + qtd_chapas_piso
-        explicacoes[codigo_chapa_piso] = c_expl
+    if codigo_chapa_piso:
+        quantidade = qtd_chp_piso
+        explicacao = "Dim. chapas piso cabine"
+        if codigo_chapa_piso == "INF":
+            nome_outro = respostas.get("Material Piso Outro Nome")
+            valor_outro = respostas.get("Material Piso Outro Valor")
+            adicionar_componente(codigo_chapa_piso, quantidade, "CABINE", "Chapas Piso", explicacao, 
+                                 nome_outro=nome_outro, valor_outro=valor_outro)
+        else:
+            adicionar_componente(codigo_chapa_piso, quantidade, "CABINE", "Chapas Piso", explicacao)
 
         # Parafusos para o piso
-        qtd_parafusos_piso = 13 * qtd_chapas_piso
-        if "FE01" in todos_custos:
-            componentes["FE01"] = componentes.get("FE01", 0) + qtd_parafusos_piso
-            explicacoes["FE01"] += "\nCálculo para parafusos adicionais do piso: 13 por chapa de piso."
+        explicacao = "13 por chapa de piso."
+        qtd_parafusos = 13 * quantidade
+        explicacao += f" = 13 * {quantidade} = {qtd_parafusos}"
+        adicionar_componente("FE04", qtd_parafusos, "CABINE", "Chapas Piso", explicacao)
 
-    # Grupo Chapa - Chapa Piso Cabine (Cobertura)
-
-    tipo_piso = respostas.get("Material Piso Cabine", "")
-    
-    if piso_conta == "Por conta da empresa":
-        if tipo_piso == "Antiderrapante 3/8":
-            codigo_chapa_cobertura = "CH04"
-        elif tipo_piso == "Xadrez":
-            codigo_chapa_cobertura = "CH05"
-        else:
-            codigo_chapa_cobertura = None
-
-        if codigo_chapa_cobertura and codigo_chapa_cobertura in todos_custos:
-            qtd_chapas_cobertura = dimensionamento['cab']['chp']['piso']
-            componentes[codigo_chapa_cobertura] = qtd_chapas_cobertura
-            explicacoes[codigo_chapa_cobertura] = "Cálculo: Quantidade igual ao número de chapas do piso."
-
-            # Parafusos para o piso de cobertura
-            qtd_parafusos_cobertura = 13 * qtd_chapas_cobertura
-            if "FE01" in todos_custos:
-                componentes["FE01"] = componentes.get("FE01", 0) + qtd_parafusos_cobertura
-                explicacoes["FE01"] += "\nCálculo para parafusos adicionais da cobertura do piso: 13 por chapa de cobertura."
-
-    # Grupo CARRINHO - Chassi
-
-    capacidade = dimensionamento['cab']['capacidade']
-    largura_cabine = dimensionamento['cab']['largura']
-    altura_cabine = dimensionamento['cab']['altura']
-
+    # Grupo CARRINHO
+    # Chassi
     # Travessa
     if capacidade <= 1000:
         codigo_travessa = "PE01"
@@ -194,14 +263,14 @@ def calcular_componentes(dimensionamento, respostas):
     if capacidade > 2000:
         qtd_travessa += 4
 
-    comp_travessa = largura_cabine + 0.25  # 25 cm adicional
-
-    if codigo_travessa in todos_custos:
-        componentes[codigo_travessa] = qtd_travessa
-        explicacoes[codigo_travessa] = (
-            f"Cálculo: Quantidade base de 4 unidades, +4 se capacidade > 2000kg. Comprimento = largura da cabine + 0,25m. "
+    if codigo_travessa:
+        quantidade = qtd_travessa
+        comp_travessa = largura_cabine + 0.17 
+        explicacao = (
+            f"Quantidade base de 4 unidades, +4 se capacidade > 2000kg. Comprimento = largura da cabine + 0,17m. "
             f"Tipo selecionado com base na capacidade do elevador."
         )
+        adicionar_componente(codigo_travessa, quantidade, "CARRINHO", "Chassi", explicacao, comprimento=comp_travessa)
 
     # Longarina
     if capacidade <= 1500:
@@ -212,25 +281,21 @@ def calcular_componentes(dimensionamento, respostas):
         codigo_longarina = "PE06"
 
     qtd_longarina = 2
-    comp_longarina = altura_cabine + 0.70  # 70 cm adicional
-
-    if codigo_longarina in todos_custos:
-        componentes[codigo_longarina] = qtd_longarina
-        explicacoes[codigo_longarina] = (
-            f"Cálculo: 2 unidades fixas. Comprimento = altura da cabine + 0,70m. "
+    if codigo_longarina:
+        quantidade = qtd_longarina
+        explicacao = (
+            f"2 unidades fixas. Comprimento = altura da cabine + 0,70m. "
             f"Tipo selecionado com base na capacidade do elevador."
         )
-
+        comp_longarina = altura_cabine + 0.70 
+        adicionar_componente(codigo_longarina, quantidade, "CARRINHO", "Chassi", explicacao, comprimento=comp_longarina)
+    
     # Parafusos para chassi
-    if "FE02" in todos_custos:
-        componentes["FE02"] = 65
-        explicacoes["FE02"] = "Quantidade fixa de 65 unidades para montagem do chassi."
+    qtd_parafusos = 65
+    explicacao = "Quantidade fixa de 65 unidades para montagem do chassi"
+    adicionar_componente("FE02", qtd_parafusos, "CARRINHO", "Chassi", explicacao)
 
-    # Grupo CARRINHO - Plataforma
-
-    largura_cabine = dimensionamento['cab']['largura']
-    comprimento_cabine = dimensionamento['cab']['compr']
-
+    # Plataforma
     # Perfis externos
     if capacidade <= 1000:
         codigo_perfil_externo = "PE07"
@@ -239,16 +304,25 @@ def calcular_componentes(dimensionamento, respostas):
     else:
         codigo_perfil_externo = "PE09"
 
-    qtd_perfil_externo = 4
-    comp_perfil_externo_largura = largura_cabine
-    comp_perfil_externo_comprimento = comprimento_cabine
+    qtd_perfil_externo = 2
 
-    if codigo_perfil_externo in todos_custos:
-        componentes[codigo_perfil_externo] = qtd_perfil_externo
-        explicacoes[codigo_perfil_externo] = (
-            f"Cálculo: 4 unidades fixas. 2 com comprimento igual à largura da cabine, 2 com comprimento igual ao comprimento da cabine. "
-            f"Tipo selecionado com base na capacidade do elevador."
+    if codigo_perfil_externo:
+        quantidade = qtd_perfil_externo
+        comp_perfil_externo = largura_cabine
+        explicacao = (
+            f"2 unidades com comprimento igual à largura da cabine."
+            f"Tipo selecionado com base na capacidade do elevador"
         )
+        adicionar_componente(codigo_perfil_externo, quantidade, "CARRINHO", "Plataforma", explicacao, comprimento=comp_perfil_externo)
+
+    if codigo_perfil_externo:
+        quantidade = qtd_perfil_externo
+        comp_perfil_externo = comprimento_cabine
+        explicacao = (
+            f"2 unidades com comprimento igual ao comprimento da cabine."
+            f"Tipo selecionado com base na capacidade do elevador"
+        )
+        adicionar_componente(codigo_perfil_externo, quantidade, "CARRINHO", "Plataforma", explicacao, comprimento=comp_perfil_externo)
 
     # Perfis internos
     if capacidade <= 1000:
@@ -259,170 +333,152 @@ def calcular_componentes(dimensionamento, respostas):
         codigo_perfil_interno = "PE12"
 
     qtd_perfil_interno = round(largura_cabine / 0.35)  # 35 cm = 0.35 m
-    comp_perfil_interno = comprimento_cabine
-
-    if codigo_perfil_interno in todos_custos:
-        componentes[codigo_perfil_interno] = qtd_perfil_interno
-        explicacoes[codigo_perfil_interno] = (
-            f"Cálculo: Quantidade = largura da cabine / 0,35m (arredondado). Comprimento igual ao comprimento da cabine. "
-            f"Tipo selecionado com base na capacidade do elevador."
-        )
+    if codigo_perfil_interno:
+        quantidade = qtd_perfil_interno
+        comp_perfil_interno = comprimento_cabine
+        explicacao = "Quantidade = largura da cabine / 0,35m (arredondado)."
+        qtd_perfil_interno = round(largura_cabine / 0.35)
+        explicacao += f" = round({largura_cabine} / 0,35) = {qtd_perfil_interno}"
+        adicionar_componente(codigo_perfil_interno, qtd_perfil_interno, "CARRINHO", "Plataforma", explicacao, comprimento=comp_perfil_interno)
 
     # Parafusos para plataforma
+    explicacao = "24 unidades base + (4 * número de perfis internos)."
     qtd_parafusos_plataforma = 24 + (4 * qtd_perfil_interno)
-    if "FE02" in todos_custos:
-        componentes["FE02"] = componentes.get("FE02", 0) + qtd_parafusos_plataforma
-        explicacoes["FE02"] += (
-            f"\nParafusos adicionais para a plataforma: "
-            f"Cálculo: 24 unidades base + (4 * número de perfis internos). Adicionados aos parafusos do chassi."
-        )
+    explicacao += f" = 24 + (4 * {qtd_perfil_interno}) = {qtd_parafusos_plataforma}"
+    adicionar_componente("FE02", qtd_parafusos_plataforma, "CARRINHO", "Plataforma", explicacao)
+    
+    
+    # Barra Roscada
+    comprimento_barra = (comprimento_cabine / 2) / 0.60
+    qtd_barras_necessarias = 4
+    comprimento_total = comprimento_barra * qtd_barras_necessarias
+    qtd_barras_compradas = math.ceil(comprimento_total / 3)  # Arredonda para cima
 
-    # Grupo TRAÇÃO - Motor
+    explicacao = (f"Comprimento da barra = (comprimento_cabine / 2) / 0.60 = {comprimento_barra:.2f}m. "
+                  f"4 barras necessárias, comprimento total = {comprimento_total:.2f}m. "
+                  f"Barras compradas (3m cada): {qtd_barras_compradas}")
+    adicionar_componente("PE25", qtd_barras_compradas, "CARRINHO", "Barra Roscada", explicacao)
 
-    acionamento = respostas.get("Acionamento", "")
+    # Parafusos para barra roscada
+    explicacao = "4 parafusos por barra, 16 no total"
+    adicionar_componente("FE01", 16, "CARRINHO", "Barra Roscada", explicacao)
+    adicionar_componente("FE02", 16, "CARRINHO", "Barra Roscada", explicacao)
 
+    # Suportes para barra roscada
+    explicacao = "1 suporte por barra, 4 no total"
+    adicionar_componente("PE26", 4, "CARRINHO", "Barra Roscada", explicacao)
+    adicionar_componente("PE27", 4, "CARRINHO", "Barra Roscada", explicacao)
+    
+    # Grupo TRACAO
+    # Acionamento
     if acionamento.lower() == "hidráulico":
-        if "MO01" in todos_custos:
-            componentes["MO01"] = 1
-            explicacoes["MO01"] = "1 unidade se o acionamento for hidráulico."
+        quantidade = 1
+        explicacao = "1 unidade se o acionamento for hidráulico"
+        adicionar_componente("MO01", quantidade, "TRACAO", "Acionamento", explicacao)
 
-    # Grupo TRAÇÃO - Tracionamento
+    # Tracionamento
+    if acionamento.lower() == "motor":
 
-    tracao = respostas.get("Tração", "")
-    largura_cabine = dimensionamento['cab']['largura']
-    comprimento_poco = float(respostas.get("Comprimento do Poço", 0))
+        # Polia (PE13)
+        qtd_polias = 0
+        if tracao == "2x1":
+            qtd_polias = 1
+            if largura_cabine > 2:
+                qtd_polias = 2
 
-    # Polia (PE13)
-    qtd_polias = 0
-    if tracao == "2x1":
-        qtd_polias = 1
-        if largura_cabine > 2:
-            qtd_polias = 2
+        if qtd_polias > 0:
+            quantidade = qtd_polias
+            explicacao = "1 unidade se tração 2x1, 2 unidades se tração 2x1 e largura da cabine > 2m"
+            adicionar_componente("PE13", quantidade, "TRACAO", "Tracionamento", explicacao)
 
-    if "PE13" in todos_custos and qtd_polias > 0:
-        componentes["PE13"] = qtd_polias
-        explicacoes["PE13"] = "Cálculo: 1 unidade se tração 2x1, 2 unidades se tração 2x1 e largura da cabine > 2m."
-
-    # Cabo de aço (PE14)
-    comp_cabo = comprimento_poco
-    if tracao == "2x1":
-        comp_cabo = 2 * comprimento_poco
-    comp_cabo += 5  # 5 metros adicionais
-
-    if "PE14" in todos_custos:
-        componentes["PE14"] = comp_cabo
-        explicacoes["PE14"] = "Cálculo: Comprimento do poço (2x se tração 2x1) + 5m adicionais."
-
-    # Travessa da polia (PE15)
-    if qtd_polias > 1:
-        comp_travessa = largura_cabine / 2
-        if "PE15" in todos_custos:
-            componentes["PE15"] = 1
-            explicacoes["PE15"] = "1 unidade se houver 2 polias. Comprimento = largura da cabine / 2."
-
-    # Grupo TRAÇÃO - Contrapeso
-
-    contrapeso_posicao = respostas.get("Contrapeso", "")
-    comprimento_poco = float(respostas.get("Comprimento do Poço", 0))
-    largura_poco = float(respostas.get("Largura do Poço", 0))
-    tracao_cabine = dimensionamento['cab']['tracao']
-
-    contrapeso_tipo = None
-    if contrapeso_posicao == "Lateral":
-        if comprimento_poco < 1.90:
-            contrapeso_tipo = "PE16" if tracao_cabine <= 1000 else "PE17"
+        # Cabo de aço (PE14)
+        explicacao = "Comprimento do poço (2x se tração 2x1) + 5m adicionais. "
+        comp_cabo = comprimento_poco
+        if tracao == "2x1":
+            comp_cabo = 2 * comprimento_poco
+            explicacao += "2 * comprimento_poco + 5"
         else:
-            contrapeso_tipo = "PE18"
-    elif contrapeso_posicao == "Traseiro":
-        if largura_poco < 1.90:
-            contrapeso_tipo = "PE16" if tracao_cabine <= 1000 else "PE17"
+            explicacao += "comprimento_poco + 5"
+        comp_cabo += 5
+        explicacao += f" = {'2 * ' if tracao == '2x1' else ''}{comprimento_poco} + 5 = {comp_cabo}"
+        adicionar_componente("PE14", comp_cabo, "TRACAO", "Tracionamento", explicacao)
+
+        # Travessa da polia (PE15)
+        if qtd_polias > 1:
+            quantidade = 1
+            comp_travessa = largura_cabine / 2
+            explicacao = "1 unidade se houver 2 polias. Comprimento = largura da cabine / 2"
+            adicionar_componente("PE15", quantidade, "TRACAO", "Tracionamento", explicacao, comprimento=comp_travessa)
+
+        # Contrapeso
+        contrapeso_tipo = None
+        if contrapeso_posicao == "Lateral":
+            if comprimento_poco < 1.90:
+                contrapeso_tipo = "PE16" if tracao_cabine <= 1000 else "PE17"
+            else:
+                contrapeso_tipo = "PE18"
+        elif contrapeso_posicao == "Traseiro":
+            if largura_poco < 1.90:
+                contrapeso_tipo = "PE16" if tracao_cabine <= 1000 else "PE17"
+            else:
+                contrapeso_tipo = "PE18"
+
+        if contrapeso_tipo:
+            quantidade = 1
+            explicacao = "Tipo selecionado com base na posição do contrapeso, dimensões do poço e tração da cabine"
+            adicionar_componente(contrapeso_tipo, quantidade, "TRACAO", "Contrapeso", explicacao)
+        
+        # Pedra
+        if contrapeso_tipo in ["PE16", "PE17"]:
+            pedra_tipo = "PE19"
+            explicacao = "Quantidade = tração da cabine / 45 (para PE16/PE17). "
+            qtd_pedras = int(tracao_cabine / 45)
+            explicacao += f" = int({tracao_cabine} / 45) = {qtd_pedras}"
         else:
-            contrapeso_tipo = "PE18"
+            pedra_tipo = "PE20"
+            explicacao = "Quantidade = tração da cabine / 75 (para PE18). "
+            qtd_pedras = int(tracao_cabine / 75)
+            explicacao += f" = int({tracao_cabine} / 75) = {qtd_pedras}"
 
-    if contrapeso_tipo and contrapeso_tipo in todos_custos:
-        componentes[contrapeso_tipo] = 1
-        explicacoes[contrapeso_tipo] = "Tipo selecionado com base na posição do contrapeso, dimensões do poço e tração da cabine."
+        if pedra_tipo:
+            adicionar_componente(pedra_tipo, qtd_pedras, "TRACAO", "Contrapeso", explicacao)
+        
+        # Guias
+        explicacao = "Quantidade = (altura do poço / 5) * 2, arredondado. "
+        qtd_guia_elevador = round(altura_poco / 5 * 2)
+        explicacao += f" = round(({altura_poco} / 5) * 2) = {qtd_guia_elevador}"
+        adicionar_componente("PE21", qtd_guia_elevador, "TRACAO", "Guia", explicacao)
 
-    # Pedra
-    if contrapeso_tipo in ["PE16", "PE17"]:
-        pedra_tipo = "PE19"
-        qtd_pedras = int(tracao_cabine / 45)
-    else:
-        pedra_tipo = "PE20"
-        qtd_pedras = int(tracao_cabine / 75)
+        explicacao = "Quantidade = (altura do poço / 5) * 2, arredondado. "
+        qtd_suporte_guia = round(altura_poco / 5 * 2)
+        explicacao += f" = round(({altura_poco} / 5) * 2) = {qtd_suporte_guia}"
+        adicionar_componente("PE22", qtd_suporte_guia, "TRACAO", "Guia", explicacao)
 
-    if pedra_tipo in todos_custos:
-        componentes[pedra_tipo] = qtd_pedras
-        explicacoes[pedra_tipo] = "Cálculo: Quantidade = tração da cabine / 45 (para PE16/PE17) ou tração da cabine / 75 (para PE18)."
+        if contrapeso_tipo:
+            explicacao = "Quantidade = (altura do poço / 5) * 2, arredondado. "
+            qtd_guia_contrapeso = round(altura_poco / 5 * 2)
+            explicacao += f" = round(({altura_poco} / 5) * 2) = {qtd_guia_contrapeso}"
+            adicionar_componente("PE23", qtd_guia_contrapeso, "TRACAO", "Guia", explicacao)
 
-    # Grupo TRAÇÃO - Guias
+            explicacao = "Quantidade = 4 + (número de pavimentos * 2). "
+            qtd_suporte_guia_contrapeso = 4 + pavimentos * 2
+            explicacao += f" = 4 + ({pavimentos} * 2) = {qtd_suporte_guia_contrapeso}"
+            adicionar_componente("PE24", qtd_suporte_guia_contrapeso, "TRACAO", "Guia", explicacao)
     
-    altura_poco = float(respostas.get("Altura do Poço", 0))
-    contrapeso = respostas.get("Contrapeso", "")
-    pavimentos = int(respostas.get("Pavimentos", 0))
+    # Grupo SISTEMAS COMPLEMENTARES
+    # Iluminação
+    explicacao = "2 lâmpadas LED se comprimento da cabine <= 1,80m, senão 4 lâmpadas. "
+    qtd_lampadas = 2 if comprimento_cabine <= 1.80 else 4
+    explicacao += f" = {qtd_lampadas} (comprimento_cabine = {comprimento_cabine})"
+    adicionar_componente("CC01", qtd_lampadas, "SIST. COMPLEMENTARES", "Iluminação", explicacao)
 
-    # Guia do elevador (PE21)
-    qtd_guia_elevador = round(altura_poco / 5 * 2)
-    if "PE21" in todos_custos:
-        componentes["PE21"] = qtd_guia_elevador
-        explicacoes["PE21"] = "Cálculo: Quantidade = (altura do poço / 5) * 2, arredondado."
+    # Ventilação
+    qtd_ventiladores = 1 if "Passageiro" in modelo_elevador else 0
+    if qtd_ventiladores > 0:
+        explicacao = "1 ventilador se o elevador for do tipo passageiro, senão 0"
+        adicionar_componente("CC02", qtd_ventiladores, "SIST. COMPLEMENTARES", "Ventilação", explicacao)
 
-    # Suporte guia (PE22)
-    qtd_suporte_guia = round(altura_poco / 5 * 2)
-    if "PE22" in todos_custos:
-        componentes["PE22"] = qtd_suporte_guia
-        explicacoes["PE22"] = "Cálculo: Quantidade = (altura do poço / 5) * 2, arredondado."
-
-    # Guia do contrapeso (PE23)
-    if contrapeso:
-        qtd_guia_contrapeso = round(altura_poco / 5 * 2)
-        if "PE23" in todos_custos:
-            componentes["PE23"] = qtd_guia_contrapeso
-            explicacoes["PE23"] = "Cálculo: Quantidade = (altura do poço / 5) * 2, arredondado. Apenas se houver contrapeso."
-
-    # Suporte guia do contrapeso (PE24)
-    if contrapeso:
-        qtd_suporte_guia_contrapeso = 4 + pavimentos * 2
-        if "PE24" in todos_custos:
-            componentes["PE24"] = qtd_suporte_guia_contrapeso
-            explicacoes["PE24"] = "Cálculo: Quantidade = 4 + (número de pavimentos * 2). Apenas se houver contrapeso."
-
-    
-        # Grupo SISTEMAS COMPLEMENTARES - Iluminação
-    comprimento_cabine = dimensionamento['cab']['compr']
-    
-    if "CC01" in todos_custos:
-        qtd_lampadas = 2 if comprimento_cabine <= 1.80 else 4
-        componentes["CC01"] = qtd_lampadas
-        explicacoes["CC01"] = "Cálculo: 2 lâmpadas LED se comprimento da cabine <= 1,80m, senão 4 lâmpadas."
-
-    # Grupo SISTEMAS COMPLEMENTARES - Ventilação
-    modelo_elevador = respostas.get("Modelo do Elevador", "")
-    
-    if "CC02" in todos_custos:
-        qtd_ventiladores = 1 if "Passageiro" in modelo_elevador else 0
-        if qtd_ventiladores > 0:
-            componentes["CC02"] = qtd_ventiladores
-            explicacoes["CC02"] = "Cálculo: 1 ventilador se o elevador for do tipo passageiro, senão 0."
-    
-    componentes_formatados = {}
-    for codigo, quantidade in componentes.items():
-        if codigo in todos_custos:
-            custo_unitario = todos_custos[codigo].valor
-            custo_total_item = quantidade * custo_unitario
-            custos[codigo] = custo_total_item
-            custo_total += custo_total_item
-            
-            componentes_formatados[codigo] = {
-                "descricao": todos_custos[codigo].descricao,
-                "quantidade": quantidade,
-                "unidade": todos_custos[codigo].unidade,
-                "custo_unitario": custo_unitario,
-                "custo_total": custo_total_item,
-                "explicacao": explicacoes[codigo]
-            }
-
-    return componentes_formatados, custos, custo_total, todos_custos
+    return componentes, custos, custo_total, todos_custos
 
 # SUBROTINAS
 
@@ -471,12 +527,11 @@ def calcular_chapas_cabine(altura, largura, comprimento):
     sobra_chapapiso = (num_chapapiso * area_chapa) - area_utilizada_piso
 
     num_chapamargem = 2
-    num_chapatot = num_chapalt + num_chapaf + num_chapamargem + num_chapapiso
+    num_chapatot = num_chapalt + num_chapaf + num_chapamargem
 
     # Cálculo das sobras
     sobra_chapalt = (0.40 - (largura_painel_lateral + 0.085)) * num_chapalt
     sobra_chapaf = (0.40 - (largura_painel_fundo + 0.085)) * num_chapaf
-
 
     return {
         "num_paineis_lateral": num_paineis_lateral,
