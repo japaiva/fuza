@@ -9,15 +9,20 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from io import BytesIO
 from datetime import datetime
-import locale
 import re
 from functions.database import get_all_custos
 
-# Configurar a localização para formatar números
-locale.setlocale(locale.LC_ALL, 'pt_BR.UTF-8')
-
+# Função personalizada para formatação de moeda
 def format_currency(value):
-    return locale.currency(value, grouping=True, symbol=None)
+    if value is None:
+        return "R$ 0,00"
+    return f"R$ {value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+# Função personalizada para formatação de data
+def format_date(date):
+    if isinstance(date, str):
+        date = datetime.strptime(date, "%Y-%m-%d")
+    return date.strftime("%d/%m/%Y")
 
 def gerar_pdf_demonstrativo(dimensionamento, explicacao, componentes, custo_total, respostas, respostas_agrupadas, grupos):
     buffer = BytesIO()
@@ -36,18 +41,16 @@ def gerar_pdf_demonstrativo(dimensionamento, explicacao, componentes, custo_tota
     subtitle_style = styles['Heading2']
 
     # ---- CRIANDO ESTILOS ESPECÍFICOS PARA O RELATÓRIO ----
-    # Estilo para o título principal (mais profissional)
     title_style = ParagraphStyle(
         'title_style',
         parent=styles['Heading1'],
         fontName='Helvetica-Bold',
         fontSize=16,
         leading=20,
-        alignment=1,  # centraliza o texto
+        alignment=1,
         textColor=colors.black
     )
     
-    # Estilo para texto em negrito
     bold_style = ParagraphStyle(
         'Bold', 
         parent=normal_style, 
@@ -58,7 +61,6 @@ def gerar_pdf_demonstrativo(dimensionamento, explicacao, componentes, custo_tota
     title_paragraph = Paragraph("Relatório de Cálculo do Elevador Fuza", title_style)
     elements.append(title_paragraph)
     
-    # Linha horizontal logo abaixo do título
     hr = HRFlowable(
         width="100%",
         thickness=1,
@@ -70,7 +72,7 @@ def gerar_pdf_demonstrativo(dimensionamento, explicacao, componentes, custo_tota
 
     # Informações do usuário, data e hora
     now = datetime.now()
-    user_info = f"Usuário: {st.session_state.username} | Data: {now.strftime('%d/%m/%Y')} | Hora: {now.strftime('%H:%M:%S')}"
+    user_info = f"Usuário: {st.session_state.username} | Data: {format_date(now)} | Hora: {now.strftime('%H:%M:%S')}"
     elements.append(Paragraph(user_info, normal_style))
     elements.append(Spacer(1, 0.2 * inch))
 
@@ -88,13 +90,11 @@ def gerar_pdf_demonstrativo(dimensionamento, explicacao, componentes, custo_tota
     # ---- 2. FICHA TÉCNICA ----
     elements.append(Paragraph("2. Ficha Técnica", subtitle_style))
     
-    # Dimensões Cabine
     dim_cabine = f"""
     Dimensões Cabine: {dimensionamento['cab']['largura']:.2f}m L x {dimensionamento['cab']['compr']:.2f}m C x {dimensionamento['cab']['altura']:.2f}m A
     """
     elements.append(Paragraph(dim_cabine, normal_style))
     
-    # Capacidade e Tração Cabine
     cap_tracao = f"""
     Capacidade e Tração Cabine: {format_currency(dimensionamento['cab']['capacidade'])} kg, {format_currency(dimensionamento['cab']['tracao'])} kg
     """
@@ -105,12 +105,10 @@ def gerar_pdf_demonstrativo(dimensionamento, explicacao, componentes, custo_tota
     # ---- 3. CÁLCULO DIMENSIONAMENTO ----
     elements.append(Paragraph("3. Cálculo Dimensionamento", subtitle_style))
     
-    # Usar expressão regular para converter **texto** em <b>texto</b>
     paragrafos = explicacao.split('\n')
     for paragrafo in paragrafos:
         paragrafo = paragrafo.strip()
         if paragrafo:
-            # Substituir **...** por <b>...</b>
             paragrafo_com_negrito = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', paragrafo)
             elements.append(Paragraph(paragrafo_com_negrito, normal_style))
     
@@ -125,11 +123,10 @@ def gerar_pdf_demonstrativo(dimensionamento, explicacao, componentes, custo_tota
             for item in itens:
                 item_text = f"""
                 {item['descricao']} ({item['codigo']}) - {item['quantidade']} {item['unidade']}
-                Custo Unitário: R$ {format_currency(item['custo_unitario'])}
-                Custo Total: R$ {format_currency(item['custo_total'])}
+                Custo Unitário: {format_currency(item['custo_unitario'])}
+                Custo Total: {format_currency(item['custo_total'])}
                 Cálculo: {item['explicacao']}
                 """
-                # Também ajustamos possíveis **negritos** no texto do item
                 item_text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', item_text)
                 elements.append(Paragraph(item_text, normal_style))
             elements.append(Spacer(1, 0.1 * inch))
@@ -138,26 +135,22 @@ def gerar_pdf_demonstrativo(dimensionamento, explicacao, componentes, custo_tota
 
     # ---- RESULTADO FINAL ----
     elements.append(Paragraph("Resultado Final", subtitle_style))
-    elements.append(Paragraph(f"Custo Total: R$ {format_currency(custo_total)}", bold_style))
-
-    # Se quiser jogar a tabela em uma nova página, descomente a linha abaixo
-    # elements.append(PageBreak())
+    elements.append(Paragraph(f"Custo Total: {format_currency(custo_total)}", bold_style))
 
     # ---- TABELA COMPONENTES ----
-    elements.append(Spacer(1, 0.3 * inch))  # Espaço antes do título da tabela
+    elements.append(Spacer(1, 0.3 * inch))
     elements.append(Paragraph("Tabela de Componentes", subtitle_style))
-    elements.append(Spacer(1, 0.1 * inch))  # Espaço controlado antes de iniciar a tabela
+    elements.append(Spacer(1, 0.1 * inch))
 
     todos_custos = get_all_custos()
     table_data = [["Código", "Descrição", "Unidade", "Custo Unitário"]]
     for custo in todos_custos:
-        # Se necessário, também tratamos **texto** da descrição
         desc_tratada = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', custo.descricao)
         table_data.append([
             custo.codigo,
             Paragraph(desc_tratada, normal_style),
             custo.unidade,
-            f"R$ {format_currency(custo.valor)}"
+            format_currency(custo.valor)
         ])
     
     table = Table(table_data, colWidths=[1*inch, 3.5*inch, 1*inch, 1.5*inch])
@@ -178,9 +171,9 @@ def gerar_pdf_demonstrativo(dimensionamento, explicacao, componentes, custo_tota
         ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
         ('GRID', (0, 0), (-1, -1), 1, colors.black)
     ]))
-    elements.append(Indenter(left=40))  # 40 pontos ~ 0.56 inch
+    elements.append(Indenter(left=40))
     elements.append(table)
-    elements.append(Indenter(left=-40))  # remove o deslocamento usado anteriormente
+    elements.append(Indenter(left=-40))
 
     # ---- FINALIZA O PDF ----
     doc.build(elements)
