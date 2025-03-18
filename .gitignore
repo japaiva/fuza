@@ -2,4 +2,8 @@ z_arquivos/
 .venv/
 __pycache__/
 alembic/
-alembic.ini
+alembic.ini__pycache__/
+*.pyc
+*.pyo
+*.pyd
+app.db
