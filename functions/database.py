@@ -1,10 +1,16 @@
+import os
 from sqlalchemy import create_engine, Column, Integer, String, Float, inspect, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from dotenv import load_dotenv
 import bcrypt
 
+load_dotenv()
 Base = declarative_base()
-engine = create_engine('sqlite:///app.db') 
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise ValueError("❌ ERRO: A variável DATABASE_URL não está definida!")
+engine = create_engine(DATABASE_URL)
 Session = sessionmaker(bind=engine)
 
 # Classes

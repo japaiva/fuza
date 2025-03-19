@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  simuladorfuza:
+    image: joseantoniopaiva/simuladorfuza
+    # Comente a exposição de portas se não for necessário
+    # ports:
+    #   - "8501:8501" 
+    networks:
+      - interna
+      - externa
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.fz01.rule=Host(`fz01.spsystems.pro`)"
+        - "traefik.http.routers.fz01.entrypoints=websecure"
+        - "traefik.http.routers.fz01.tls.certresolver=le"
+        - "traefik.http.routers.fz01.tls=true"
+        - "traefik.http.services.fz01.loadbalancer.server.port=8501"
+        - "traefik.http.services.fz01.loadbalancer.passHostHeader=true"
+
+networks:
+  externa:
+    name: externa
+    external: true
+  interna:
+    name: interna
+    external: true
