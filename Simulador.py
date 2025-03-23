@@ -3,7 +3,7 @@ import yaml
 from yaml.loader import SafeLoader
 from functions.calc import calcular_dimensionamento_completo, calcular_componentes
 from functions.pdf_utils import gerar_pdf_demonstrativo
-from functions.database import init_db, add_admin_if_not_exists, get_all_users, get_user, inserir_produtos_iniciais, Session
+from functions.database import init_db, get_all_users
 from functions.auth import verify_login
 from functions.layout import show_logo
 from functions.style import set_custom_style
